@@ -1,0 +1,422 @@
+@page
+@model CivilApplicationsModel
+@{
+    ViewData["Title"] = "Stage A civil applications";
+}
+
+<section class="hero">
+    <p class="eyebrow">CIVIL LITIGATION · STAGE A</p>
+    <h1>Prepare an application after filing the plaint.</h1>
+    <p class="hero-copy">Select a saved civil plaint and procedural step. Review the case-specific supporting-document checklist, add any new material, then generate a draft linked to that case.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ApiErrorMessage))
+{
+    <div class="notice notice-warning" role="alert">@Model.ApiErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="notice notice-success" role="status">@Model.StatusMessage</div>
+}
+
+<div class="workspace">
+    <form method="post" asp-page-handler="SelectCase" class="draft-form">
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Select the filed plaint</h2>
+                    <p>Only civil cases with a saved CivilPlaint draft are listed.</p>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="SelectedCaseId">Existing civil plaint <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedCaseId" class="form-select">
+                        <option value="">Select a saved plaint</option>
+                        @foreach (var civilPlaint in Model.CivilPlaints)
+                        {
+                            <option value="@civilPlaint.Id">
+                                @civilPlaint.Title
+                                (@(civilPlaint.PlaintiffName ?? "Plaintiff") vs @(civilPlaint.DefendantName ?? "Defendant"))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="SelectedApplicationCode">Stage A application <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedApplicationCode" class="form-select">
+                        <option value="">Select a procedural step</option>
+                        @foreach (var application in Model.Applications)
+                        {
+                            <option value="@application.Code">@application.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <p>Choose a plaint and application to see its document checklist.</p>
+                <button type="submit" class="secondary-button">Load checklist <span aria-hidden="true">→</span></button>
+            </div>
+        </section>
+    </form>
+
+    @if (Model.SelectedCase is not null && Model.SelectedApplication is not null)
+    {
+        <section class="draft-form stage-a-panel">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>@Model.SelectedApplication.Label</h2>
+                    <p>@Model.SelectedApplication.WhenNeeded</p>
+                </div>
+            </div>
+
+            <div class="stage-a-reference">
+                <strong>Provision generally relevant</strong>
+                <span>@Model.SelectedApplication.Provision</span>
+                <a href="https://www.indiacode.nic.in/handle/123456789/2190" target="_blank" rel="noopener noreferrer">
+                    Consult the Code of Civil Procedure, 1908 on India Code
+                </a>
+            </div>
+            <section class="stage-a-saved-drafts" aria-labelledby="saved-application-drafts-heading">
+                <div class="subsection-heading">
+                    <h3 id="saved-application-drafts-heading">Saved application versions</h3>
+                    <p>Reload any saved version for this case and application to review it or download its PDF.</p>
+                </div>
+                @if (Model.ExistingApplicationDrafts.Count > 0)
+                {
+                    <ul class="stage-a-saved-draft-list">
+                        @foreach (var draft in Model.ExistingApplicationDrafts)
+                        {
+                            <li>
+                                <span>
+                                    <strong>Version @draft.Version</strong>
+                                    <span>Saved @draft.CreatedAtUtc.ToLocalTime().ToString("g") · @draft.Status</span>
+                                </span>
+                                <form method="post" asp-page-handler="RetrieveApplicationDraft">
+                                    <input type="hidden" asp-for="SelectedCaseId" />
+                                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                                    <input type="hidden" name="draftId" value="@draft.Id" />
+                                    <button type="submit" class="secondary-button">Reload this version</button>
+                                </form>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <p class="stage-a-empty-drafts">No saved application drafts exist for this case and application yet.</p>
+                }
+            </section>
+            <div class="notice notice-warning stage-a-caution">
+                This is a research aid, not a universal filing checklist. The CPC provision, state amendments, local court and e-filing rules, and the facts of the case determine what must be filed. The attachment-before-judgment remedy requires specific evidence of a risk to execution; non-payment alone is not enough.
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Documents for this application</h3>
+                <p>The saved plaint and documents already uploaded for that case are reused. Only outstanding checklist items are offered for upload.</p>
+            </div>
+            <ul class="stage-a-checklist">
+                @foreach (var requirement in Model.Requirements)
+                {
+                    <li class="stage-a-checklist-item">
+                        <div class="stage-a-checklist-heading">
+                            <strong>@requirement.Label</strong>
+                            <span class="result-status @(requirement.AlreadyOnFile ? "" : "stage-a-status-pending")">
+                                @(requirement.AlreadyOnFile ? "Already on file" : requirement.Category)
+                            </span>
+                        </div>
+                        <p>@requirement.Guidance</p>
+                        @if (requirement.AlreadyOnFile)
+                        {
+                            <ul class="stage-a-existing-files">
+                                @foreach (var existingDocument in requirement.ExistingDocuments)
+                                {
+                                    <li class="stage-a-existing-file">
+                                        <span>@existingDocument.OriginalFileName</span>
+                                        <form method="post"
+                                              asp-page-handler="RemoveDocument"
+                                              onsubmit="return confirm('Remove this attached document from the selected case?');">
+                                            <input type="hidden" asp-for="SelectedCaseId" />
+                                            <input type="hidden" asp-for="SelectedApplicationCode" />
+                                            <input type="hidden" name="documentId" value="@existingDocument.Id" />
+                                            <button type="submit" class="remove-document-button">Remove</button>
+                                        </form>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (Model.HasAttachedAffidavit)
+            {
+                <p class="notice notice-success">The supporting affidavit is attached to this case.</p>
+                <form method="post" asp-page-handler="DownloadAttachedAffidavitPdf">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <button type="submit" class="secondary-button">Download attached affidavit PDF</button>
+                </form>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="GenerateAffidavit" class="stage-a-generate-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <div class="subsection-heading">
+                        <h3>Step 1 · Generate the supporting affidavit</h3>
+                        <p>Provide the application-specific facts first. The affidavit will use the saved plaint and case documents, and will leave unknown particulars as placeholders.</p>
+                    </div>
+                    @if (Model.DocumentsForSelectedApplication.Count > 0)
+                    {
+                        <fieldset class="field">
+                            <legend>Documents to exclude from this affidavit request</legend>
+                            <p>Check any documents whose extracted text should not be sent as context for this affidavit. They remain attached to the case.</p>
+                            <ul class="stage-a-existing-files">
+                                @foreach (var document in Model.DocumentsForSelectedApplication)
+                                {
+                                    <li class="stage-a-existing-file">
+                                        <span>@document.OriginalFileName</span>
+                                        <label class="form-check-label">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   name="ExcludedDocumentIds"
+                                                   value="@document.Id"
+                                                   checked="@(Model.ExcludedDocumentIds.Contains(document.Id))" />
+                                            Exclude
+                                        </label>
+                                    </li>
+                                }
+                            </ul>
+                        </fieldset>
+                    }
+                    <div class="field">
+                        <label asp-for="AdditionalFacts">Facts for the affidavit <span class="required-mark">*</span></label>
+                        <textarea asp-for="AdditionalFacts" class="form-control facts-input" rows="6"
+                                  placeholder="Describe the events and evidence supporting this application. Include only facts the deponent can verify."></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <p>Review the affidavit before attaching it to the case.</p>
+                        <button type="submit" class="generate-button">Generate supporting affidavit <span aria-hidden="true">→</span></button>
+                    </div>
+                </form>
+            }
+
+            @if (!Model.HasAttachedAffidavit && Model.GeneratedAffidavitDraftId is Guid affidavitDraftId &&
+                 !string.IsNullOrWhiteSpace(Model.AffidavitText))
+            {
+                <form method="post" asp-page-handler="AttachAffidavit" class="stage-a-upload-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <input type="hidden" asp-for="AdditionalFacts" />
+                    <input type="hidden" asp-for="GeneratedAffidavitDraftId" value="@affidavitDraftId" />
+                    <div class="subsection-heading">
+                        <h3>Step 2 · Review and attach the affidavit</h3>
+                        <p>Edit bracketed or other particulars as needed. The text below will be attached to this case and included as supporting material when the application is generated.</p>
+                    </div>
+                    <div class="field">
+                        <label asp-for="AffidavitText">Supporting affidavit</label>
+                        <textarea asp-for="AffidavitText" class="form-control affidavit-editor" rows="18"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <p>Download a PDF for review or attach the reviewed affidavit before generating the application.</p>
+                        <button type="submit"
+                                class="secondary-button"
+                                formaction="?handler=DownloadAffidavitPdf">
+                            Download affidavit PDF
+                        </button>
+                        <button type="submit" class="secondary-button">Attach affidavit to case</button>
+                    </div>
+                </form>
+            }
+
+            @if (Model.HasAttachedAffidavit && Model.Uploads.Count > 0)
+            {
+                <form method="post" asp-page-handler="UploadDocuments" enctype="multipart/form-data" class="stage-a-upload-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <div class="subsection-heading">
+                        <h3>Attach supporting material to the case</h3>
+                        <p>Upload only relevant documents not already on file. Files are saved with this case and their readable text may be used to prepare the draft. Maximum total upload: 50 MB.</p>
+                    </div>
+                    @for (var index = 0; index < Model.Uploads.Count; index++)
+                    {
+                        <div class="field stage-a-upload-field">
+                            <input type="hidden" name="UploadInputs[@index].DocumentCode" value="@Model.Uploads[index].DocumentCode" />
+                            <label for="UploadInputs_@(index)__File">@Model.Uploads[index].Label</label>
+                            <input id="UploadInputs_@(index)__File"
+                                   name="UploadInputs[@index].File"
+                                   type="file"
+                                   class="form-control"
+                                   accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                        </div>
+                    }
+                    <div class="form-actions">
+                        <p>Upload only files applicable to this application.</p>
+                        <button type="submit" class="secondary-button">Upload selected documents</button>
+                    </div>
+                </form>
+            }
+            else if (Model.HasAttachedAffidavit && Model.Uploads.Count == 0)
+            {
+                <p class="notice notice-success">The supporting affidavit and all checklist items are represented in the case file.</p>
+            }
+
+            @if (Model.HasAttachedAffidavit)
+            {
+                <form method="post" asp-page-handler="Generate" class="stage-a-generate-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <div class="subsection-heading">
+                        <h3>Step 3 · Generate the application</h3>
+                        <p>The attached supporting affidavit and case documents will be available as drafting context.</p>
+                    </div>
+                    @if (Model.DocumentsForSelectedApplication.Count > 0)
+                    {
+                        <fieldset class="field stage-a-document-exclusions">
+                            <legend>Documents to exclude from this application request</legend>
+                            <p>Check documents whose extracted text should not be sent as context for this application. They remain attached to the case.</p>
+                            <label class="form-check-label">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       data-stage-a-select-all />
+                                Exclude all documents
+                            </label>
+                            <ul class="stage-a-existing-files">
+                                @foreach (var document in Model.DocumentsForSelectedApplication)
+                                {
+                                    <li class="stage-a-existing-file">
+                                        <span>@document.OriginalFileName</span>
+                                        <label class="form-check-label">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   name="ExcludedDocumentIds"
+                                                   value="@document.Id"
+                                                   data-stage-a-document-exclusion
+                                                   checked="@(Model.ExcludedDocumentIds.Contains(document.Id))" />
+                                            Exclude
+                                        </label>
+                                    </li>
+                                }
+                            </ul>
+                        </fieldset>
+                    }
+                    <div class="field">
+                        <label asp-for="AdditionalFacts">Application facts <span class="required-mark">*</span></label>
+                        <textarea asp-for="AdditionalFacts" class="form-control facts-input" rows="6"
+                                  placeholder="Explain the relevant events, dates, urgency, and requested procedural relief."></textarea>
+                    </div>
+
+                    @section Scripts {
+                        <script>
+                            document.querySelectorAll(".stage-a-document-exclusions").forEach((group) => {
+                                const selectAll = group.querySelector("[data-stage-a-select-all]");
+                                const exclusions = Array.from(group.querySelectorAll("[data-stage-a-document-exclusion]"));
+                                if (!selectAll || exclusions.length === 0) return;
+
+                                const updateSelectAll = () => {
+                                    const checkedCount = exclusions.filter((checkbox) => checkbox.checked).length;
+                                    selectAll.checked = checkedCount === exclusions.length;
+                                    selectAll.indeterminate = checkedCount > 0 && checkedCount < exclusions.length;
+                                };
+
+                                selectAll.addEventListener("change", () => {
+                                    exclusions.forEach((checkbox) => {
+                                        checkbox.checked = selectAll.checked;
+                                    });
+                                    selectAll.indeterminate = false;
+                                });
+                                exclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAll));
+                                updateSelectAll();
+                            });
+                        </script>
+                    }
+                    <div class="form-actions">
+                        <p>The application is saved separately from the plaint and attached affidavit.</p>
+                        <button type="submit" class="generate-button">Generate application draft <span aria-hidden="true">→</span></button>
+                    </div>
+                </form>
+            }
+
+            @if (Model.SelectedApplication.Code.Equals("UrgentInterimRelief", StringComparison.OrdinalIgnoreCase))
+            {
+                <section class="stage-a-generate-form">
+                    <div class="subsection-heading">
+                        <h3>Proposed notice for the interim-relief application</h3>
+                        <p>The notice draft uses extracted text from the uploaded evidence of threatened or continuing harm, together with the saved plaint and attached affidavit where available.</p>
+                    </div>
+                    @if (Model.HasReadableInterimHarmEvidence)
+                    {
+                        <form method="post" asp-page-handler="GenerateProposedNotice">
+                            <input type="hidden" asp-for="SelectedCaseId" />
+                            <input type="hidden" asp-for="SelectedApplicationCode" />
+                            <div class="form-actions">
+                                <p>Review the evidence extraction and confirm all dates and descriptions before using the notice.</p>
+                                <button type="submit" class="secondary-button">Generate proposed notice</button>
+                            </div>
+                        </form>
+                    }
+                    else
+                    {
+                        <p class="notice notice-warning">Attach readable evidence of threatened or continuing harm above before generating the proposed notice. Scanned or unreadable files may need a text-readable copy.</p>
+                    }
+                </section>
+            }
+        </section>
+    }
+    else if (Model.SelectedCase is not null)
+    {
+        <div class="notice notice-warning" role="status">Select a Stage A application to display its tailored checklist.</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GeneratedDraftJson))
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">SAVED CASE DRAFT</p>
+                    <h2>Application draft @(Model.IsRetrievedApplicationDraft ? "retrieved" : "generated")</h2>
+                </div>
+                <span class="result-status">Review before use</span>
+            </div>
+            <pre class="result-json"><code>@Model.GeneratedDraftJson</code></pre>
+            @if (Model.GeneratedApplicationDraftId is Guid applicationDraftId)
+            {
+                <form method="post" asp-page-handler="DownloadApplicationPdf" class="stage-a-pdf-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <input type="hidden" name="draftId" value="@applicationDraftId" />
+                    <button type="submit" class="secondary-button">Download application PDF</button>
+                </form>
+            }
+            <p class="review-note">Have a qualified advocate verify the procedural basis, local filing requirements, all factual assertions, and supporting annexures before filing.</p>
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GeneratedProposedNoticeJson))
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">SAVED CASE DRAFT</p>
+                    <h2>Proposed notice generated</h2>
+                </div>
+                <span class="result-status">Proposed draft · Review before use</span>
+            </div>
+            <pre class="result-json"><code>@Model.GeneratedProposedNoticeJson</code></pre>
+            @if (Model.GeneratedProposedNoticeDraftId is Guid proposedNoticeDraftId)
+            {
+                <form method="post" asp-page-handler="DownloadProposedNoticePdf" class="stage-a-pdf-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedApplicationCode" />
+                    <input type="hidden" name="draftId" value="@proposedNoticeDraftId" />
+                    <button type="submit" class="secondary-button">Download proposed notice PDF</button>
+                </form>
+            }
+            <p class="review-note">This is a proposed notice, not a court-issued notice or an order granting interim relief. Verify the evidence summary, hearing date, response directions, and service requirements with the court record and counsel.</p>
+        </section>
+    }
+
+</div>

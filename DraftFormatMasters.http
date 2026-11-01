@@ -1,0 +1,134 @@
+@baseUrl = http://localhost:5192
+@masterId = 00000000-0000-0000-0000-000000000000
+@imagePath = C:\path\to\scanned-page.png
+
+### Extract English/Hindi text from images
+POST {{baseUrl}}/api/drafts/extract-image-text
+Content-Type: multipart/form-data; boundary=ImageOcrBoundary
+
+--ImageOcrBoundary
+Content-Disposition: form-data; name="files"; filename="scanned-page.png"
+Content-Type: image/png
+
+< {{imagePath}}
+--ImageOcrBoundary--
+
+### Export reviewed OCR text to DOCX
+POST {{baseUrl}}/api/drafts/export-image-ocr-docx
+Content-Type: application/json
+
+{
+  "text": "IMAGE: scanned-page.png\nExtracted English or Hindi text goes here."
+}
+
+### List all saved draft format masters
+GET {{baseUrl}}/api/draft-format-masters
+
+### Filter draft format masters by category
+GET {{baseUrl}}/api/draft-format-masters?category=Civil
+
+### Create a civil draft format
+POST {{baseUrl}}/api/draft-format-masters
+Content-Type: multipart/form-data; boundary=DraftFormatBoundary
+
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Category"
+
+Civil
+--DraftFormatBoundary
+Content-Disposition: form-data; name="FormatName"
+
+Plaint for recovery of possession
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Description"
+
+Reusable civil plaint format for possession matters.
+--DraftFormatBoundary
+Content-Disposition: form-data; name="file"; filename="CivilPlaintFormat.docx"
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+< ./samples/CivilPlaintFormat.docx
+--DraftFormatBoundary--
+
+### Get one draft format by ID
+GET {{baseUrl}}/api/draft-format-masters/{{masterId}}
+
+### Update a draft format and replace its DOCX
+PUT {{baseUrl}}/api/draft-format-masters/{{masterId}}
+Content-Type: multipart/form-data; boundary=DraftFormatBoundary
+
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Category"
+
+Criminal
+--DraftFormatBoundary
+Content-Disposition: form-data; name="FormatName"
+
+Bail application
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Description"
+
+Reusable criminal bail application format.
+--DraftFormatBoundary
+Content-Disposition: form-data; name="file"; filename="BailApplicationFormat.docx"
+Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+< ./samples/BailApplicationFormat.docx
+--DraftFormatBoundary--
+
+### Update only the master metadata (omit the optional file part)
+PUT {{baseUrl}}/api/draft-format-masters/{{masterId}}
+Content-Type: multipart/form-data; boundary=DraftFormatBoundary
+
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Category"
+
+Civil
+--DraftFormatBoundary
+Content-Disposition: form-data; name="FormatName"
+
+Updated civil format name
+--DraftFormatBoundary--
+
+### Download the uploaded DOCX
+GET {{baseUrl}}/api/draft-format-masters/{{masterId}}/file
+
+### Export an edited Civil Plaint merged into a saved Civil DOCX template
+POST {{baseUrl}}/api/drafts/export-civil-plaint-docx
+Content-Type: application/json
+
+{
+  "text": "Standard plaint fallback text",
+  "draftFormatMasterId": "{{masterId}}",
+  "templateValues": {
+    "courtName": "Civil Judge (Senior Division), Kushinagar",
+    "caseNumber": "123/26",
+    "plaintiffName": "Gulam Ansari",
+    "facts": "First fact; Second fact"
+  }
+}
+
+### Export a reviewed Stage B service application as DOCX
+POST {{baseUrl}}/api/drafts/export-stage-b-service-docx
+Content-Type: application/json
+
+{
+  "text": "IN THE COURT OF Civil Judge\\nCivil Suit No. 123/26\\nAPPLICATION FOR ISSUANCE OF SUMMONS\\nMOST RESPECTFULLY SHOWETH:\\n1. The suit has been instituted.\\nPRAYER\\nIssue summons to the Defendant."
+}
+
+### Delete a draft format
+DELETE {{baseUrl}}/api/draft-format-masters/{{masterId}}
+
+### Example validation error: unsupported category or missing DOCX
+POST {{baseUrl}}/api/draft-format-masters
+Content-Type: multipart/form-data; boundary=DraftFormatBoundary
+
+--DraftFormatBoundary
+Content-Disposition: form-data; name="Category"
+
+Family
+--DraftFormatBoundary
+Content-Disposition: form-data; name="FormatName"
+
+Invalid category example
+--DraftFormatBoundary--

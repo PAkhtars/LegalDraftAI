@@ -1,0 +1,12 @@
+DEMO IDENTITY PROOF (for testing only)
+--------------------------------------
+Name: Rajesh Kumar Sharma
+Father's Name: Shri Om Prakash Sharma
+Date of Birth: 15-03-1985
+Aadhaar (masked): XXXX-XXXX-1234
+PAN: ABCPS1234D
+Address: House No. 42, Sector 15, Rohini, New Delhi - 110085
+Mobile: 98100XXXXX
+Email: rajesh.demo@example.com
+
+This is a SAMPLE document for LegalDraftAI local testing.

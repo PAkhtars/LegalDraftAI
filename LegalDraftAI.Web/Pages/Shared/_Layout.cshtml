@@ -1,0 +1,62 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f5f0" />
+    <title>@ViewData["Title"] - Legal Draft AI</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/LegalDraftAI.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="site-header">
+        <div class="container site-nav">
+            <a class="brand" asp-area="" asp-page="/Index">
+                <span class="brand-mark" aria-hidden="true">L</span>
+                <span>
+                    Legal Draft AI
+                    <span class="brand-caption">A first draft, grounded in your facts</span>
+                </span>
+            </a>
+            <nav class="site-links" aria-label="Main navigation">
+                <details class="nav-dropdown">
+                    <summary>Civil Cases</summary>
+                    <div class="nav-dropdown-menu">
+                        <a asp-page="/CivilPlaint">Civil Plaint</a>
+                        <a asp-page="/CivilApplications">Stage A</a>
+                        <a asp-page="/CivilSummonsService">Stage B</a>
+                        <a asp-page="/CivilDefaultProcedure">Stage C</a>
+                        <a asp-page="/DraftFormatMaster" asp-route-category="Civil">Draft Format Master</a>
+                    </div>
+                </details>
+                <details class="nav-dropdown">
+                    <summary>Criminal Cases</summary>
+                    <div class="nav-dropdown-menu">
+                        <a asp-page="/Index">Criminal Cases</a>
+                        <a asp-page="/DraftFormatMaster" asp-route-category="Criminal">Draft Format Master</a>
+                    </div>
+                </details>
+                <details class="nav-dropdown">
+                    <summary>Utilities</summary>
+                    <div class="nav-dropdown-menu">
+                        <a asp-page="/CreatePdfFromImages">Create PDF From Images</a>
+                    </div>
+                </details>
+            </nav>
+        </div>
+    </header>
+    <div class="container main-container">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="site-footer">
+        Generated drafts must be reviewed by a qualified advocate before filing.
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

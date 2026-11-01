@@ -1,0 +1,6 @@
+@LegalDraftAI_HostAddress = http://localhost:5192
+
+GET {{LegalDraftAI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

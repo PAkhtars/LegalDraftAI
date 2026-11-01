@@ -1,0 +1,10 @@
+SUIT VALUATION (DEMO)
+For the purpose of court fee and jurisdiction
+
+Nature of suit: Recovery of money
+Amount claimed: Rs. 5,10,000/-
+Valuation for court fee: Rs. 5,10,000/-
+Valuation for jurisdiction: Rs. 5,10,000/-
+
+Court: Senior Civil Judge / competent civil court at Delhi
+(Demo valuation note for testing)

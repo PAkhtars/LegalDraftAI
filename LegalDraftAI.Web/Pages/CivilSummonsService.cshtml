@@ -1,0 +1,379 @@
+@page
+@model CivilSummonsServiceModel
+@{
+    ViewData["Title"] = "Stage B · Service of summons";
+}
+
+<section class="hero">
+    <p class="eyebrow">CIVIL LITIGATION · STAGE B</p>
+    <h1>Prepare the next step for service of summons.</h1>
+    <p class="hero-copy">Select an existing civil suit, review the service records and document checklist, then generate and download a case-linked application.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ApiErrorMessage))
+{
+    <div class="notice notice-warning" role="alert">@Model.ApiErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="notice notice-success" role="status">@Model.StatusMessage</div>
+}
+
+<div class="workspace">
+    <form method="post" asp-page-handler="SelectCase" class="draft-form">
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Select the existing civil suit</h2>
+                    <p>Cases listed here have a saved civil plaint draft.</p>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="SelectedCaseId">Civil suit <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedCaseId" class="form-select">
+                        <option value="">Select an existing civil suit</option>
+                        @foreach (var civilSuit in Model.CivilSuits)
+                        {
+                            <option value="@civilSuit.Id">
+                                @civilSuit.Title
+                                (@(civilSuit.PlaintiffName ?? "Plaintiff") vs @(civilSuit.DefendantName ?? "Defendant"))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="SelectedStepCode">Stage B application / step <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedStepCode" class="form-select">
+                        <option value="">Select service step</option>
+                        @foreach (var step in Model.Steps)
+                        {
+                            <option value="@step.Code">@step.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <p>Choose a suit and service step to research relevant documents.</p>
+                <button type="submit" class="secondary-button">Load service checklist <span aria-hidden="true">→</span></button>
+            </div>
+        </section>
+    </form>
+
+    @if (Model.SelectedCase is not null && Model.SelectedStep is not null)
+    {
+        <section class="draft-form stage-a-panel">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>@Model.SelectedStep.Label</h2>
+                    <p>@Model.SelectedStep.Scenario</p>
+                </div>
+            </div>
+
+            <div class="stage-a-reference">
+                <strong>Provision generally relevant</strong>
+                <span>@Model.SelectedStep.Provision</span>
+                <a href="https://www.indiacode.nic.in/handle/123456789/2190" target="_blank" rel="noopener noreferrer">
+                    Consult the Code of Civil Procedure, 1908 on India Code
+                </a>
+            </div>
+            <div class="notice notice-warning stage-a-caution">
+                Research aid only. The court must decide whether the requested mode or direction is permitted. Substituted service under Order V Rule 20 is not automatic; record ordinary-service attempts and ask the court for directions. Check applicable local rules and court orders.
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Documents to keep ready</h3>
+                <p>Existing records on this case are matched below. Prepare plaint and annexure service copies as directed even where the filed plaint is already saved.</p>
+            </div>
+            <ul class="stage-a-checklist">
+                @foreach (var requirement in Model.Requirements)
+                {
+                    <li class="stage-a-checklist-item">
+                        <div class="stage-a-checklist-heading">
+                            <strong>@requirement.Label</strong>
+                            <span class="result-status @(requirement.AlreadyOnFile ? "" : "stage-a-status-pending")">
+                                @(requirement.CopiesToPrepare ? "Prepare copies" : requirement.AlreadyOnFile ? "Already on file" : "Not on file")
+                            </span>
+                        </div>
+                        <p>@requirement.Guidance</p>
+                        @if (requirement.AlreadyOnFile)
+                        {
+                            <ul class="stage-a-existing-files">
+                                @foreach (var existingDocument in requirement.ExistingDocuments)
+                                {
+                                    <li class="stage-a-existing-file">
+                                        <span>@existingDocument.OriginalFileName</span>
+                                        <form method="post"
+                                              asp-page-handler="RemoveDocument"
+                                              onsubmit="return confirm('Remove this attached document from the selected case?');">
+                                            <input type="hidden" asp-for="SelectedCaseId" />
+                                            <input type="hidden" asp-for="SelectedStepCode" />
+                                            <input type="hidden" name="documentId" value="@existingDocument.Id" />
+                                            <button type="submit" class="remove-document-button">Remove</button>
+                                        </form>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (Model.Uploads.Count > 0)
+            {
+                <form method="post" asp-page-handler="UploadDocuments" enctype="multipart/form-data" class="stage-a-upload-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedStepCode" />
+                    <div class="subsection-heading">
+                        <h3>Attach service records to this suit</h3>
+                        <p>Upload available returned summons, postal records, process-server reports, address records, or other material listed above. Maximum total upload: 50 MB.</p>
+                    </div>
+                    @for (var index = 0; index < Model.Uploads.Count; index++)
+                    {
+                        <div class="field stage-a-upload-field">
+                            <input type="hidden" name="UploadInputs[@index].DocumentCode" value="@Model.Uploads[index].Code" />
+                            <label for="UploadInputs_@(index)__File">@Model.Uploads[index].Label</label>
+                            <input id="UploadInputs_@(index)__File"
+                                   name="UploadInputs[@index].File"
+                                   type="file"
+                                   class="form-control"
+                                   accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                        </div>
+                    }
+                    <div class="form-actions">
+                        <p>Only upload documents relevant to this suit and service step.</p>
+                        <button type="submit" class="secondary-button">Upload selected records</button>
+                    </div>
+                </form>
+            }
+
+            <form method="post" asp-page-handler="Generate" class="stage-a-generate-form">
+                <input type="hidden" asp-for="SelectedCaseId" />
+                <input type="hidden" asp-for="SelectedStepCode" />
+                <div class="subsection-heading">
+                    <h3>Step 3 · Generate the service application</h3>
+                    <p>Describe the service facts, provide the service address where applicable, and state the precise directions requested.</p>
+                </div>
+                @if (Model.DocumentsForSelectedStep.Count > 0)
+                {
+                    <fieldset class="field stage-a-document-exclusions">
+                        <legend>Documents to exclude from this application request</legend>
+                        <p>Check documents whose extracted text should not be sent as context for this application. They remain attached to the case.</p>
+                        <label class="form-check-label">
+                            <input class="form-check-input"
+                                   type="checkbox"
+                                   data-stage-a-select-all />
+                            Exclude all documents
+                        </label>
+                        <ul class="stage-a-existing-files">
+                            @foreach (var document in Model.DocumentsForSelectedStep)
+                            {
+                                <li class="stage-a-existing-file">
+                                    <span>@document.OriginalFileName</span>
+                                    <label class="form-check-label">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="ExcludedDocumentIds"
+                                               value="@document.Id"
+                                               data-stage-a-document-exclusion
+                                               checked="@(Model.ExcludedDocumentIds.Contains(document.Id))" />
+                                        Exclude
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    </fieldset>
+                }
+                @if (Model.SelectedStep.Code.Equals("InitialSummons", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="field">
+                        <label asp-for="DefendantName">Defendant name <span class="required-mark">*</span></label>
+                        <input asp-for="DefendantName" class="form-control" placeholder="Enter defendant name" />
+                    </div>
+                    <div class="field">
+                        <label asp-for="DefendantServiceAddress">Defendant's complete address for service <span class="required-mark">*</span></label>
+                        <textarea asp-for="DefendantServiceAddress" class="form-control" rows="3"
+                                  placeholder="House/flat, street, locality, district, state, PIN code"></textarea>
+                    </div>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label asp-for="CounselName">Advocate name (optional)</label>
+                            <input asp-for="CounselName" class="form-control" placeholder="Enter counsel name if known" />
+                        </div>
+                        <div class="field">
+                            <label asp-for="CounselEnrollmentNo">Advocate enrollment number (optional)</label>
+                            <input asp-for="CounselEnrollmentNo" class="form-control" placeholder="Enter enrollment number if known" />
+                        </div>
+                    </div>
+                }
+                <div class="field">
+                    <label asp-for="ServiceFacts">Service facts <span class="required-mark">*</span></label>
+                    <textarea asp-for="ServiceFacts" class="form-control facts-input" rows="7"
+                              placeholder="For first-time summons, confirm summons have not previously been issued and provide any relevant filing/service instructions. For other steps, include service-attempt dates, results, corrected address or proposed alternative mode, and supporting records."></textarea>
+                    <span class="field-hint">For first-time issuance, a confirmation is prefilled for your review. Verify that it is accurate before generating. Advocate details are prefilled from the saved plaint or extracted vakalatnama text when available. The draft will not assume an unrecorded attempt or court direction.</span>
+                </div>
+                <div class="form-actions">
+                    <p>The generated application is saved separately under this civil suit.</p>
+                    <button type="submit" class="generate-button">Generate service application <span aria-hidden="true">→</span></button>
+                </div>
+            </form>
+        </section>
+    }
+    else if (Model.SelectedCase is not null)
+    {
+        <div class="notice notice-warning" role="status">Select a Stage B service step to display its document checklist.</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GeneratedDraftJson))
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">SAVED CASE DRAFT</p>
+                    <h2>Service application generated</h2>
+                </div>
+                <span class="result-status">Review before filing</span>
+            </div>
+            <div class="civil-plaint-editor-toolbar">
+                <div>
+                    <h3>DOCX preview</h3>
+                    <p>Select output fields to remove them from both this preview and the downloaded Word document.</p>
+                </div>
+            </div>
+            @if (Model.GeneratedDraftId is Guid draftId)
+            {
+                <form method="post" asp-page-handler="DownloadApplicationDocx" class="stage-b-docx-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedStepCode" />
+                    <input type="hidden" name="draftId" value="@draftId" />
+                    <fieldset class="field stage-a-document-exclusions civil-plaint-docx-exclusions">
+                        <legend>Output fields to omit from DOCX</legend>
+                        <p>Every field returned in the generated JSON is listed by its display name and JSON property name.</p>
+                        <label class="form-check-label">
+                            <input class="form-check-input" type="checkbox" data-stage-b-select-all />
+                            Exclude all fields
+                        </label>
+                        <ul class="stage-a-existing-files civil-plaint-docx-field-list">
+                            @foreach (var field in Model.GeneratedDraftFields)
+                            {
+                                <li class="stage-a-existing-file">
+                                    <span>
+                                        <strong>@field.Label</strong>
+                                        <code>(@field.Name)</code>
+                                        @if (!string.IsNullOrWhiteSpace(field.ValuePreview))
+                                        {
+                                            <small class="stage-b-docx-field-value">@field.ValuePreview</small>
+                                        }
+                                    </span>
+                                    <label class="form-check-label">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="ExcludedDraftFields"
+                                               value="@field.Name"
+                                               data-stage-b-field-exclusion
+                                               checked="@Model.ExcludedDraftFields.Contains(field.Name, StringComparer.Ordinal)" />
+                                        Exclude
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    </fieldset>
+                    <article class="civil-plaint-docx-preview stage-b-docx-preview"
+                             role="document"
+                             aria-label="Stage B service application DOCX preview"
+                             data-stage-b-docx-preview>
+                        @foreach (var line in Model.GeneratedDraftPreview)
+                        {
+                            <p class="@line.CssClass"
+                               data-stage-b-preview-line
+                               data-stage-b-preview-field="@line.FieldName">@line.Text</p>
+                        }
+                    </article>
+                    <div class="form-actions">
+                        <p>Excluded fields are removed from the exported application; the saved generated draft remains unchanged.</p>
+                        <button type="submit" class="secondary-button">Download application DOCX <span aria-hidden="true">↓</span></button>
+                    </div>
+                </form>
+            }
+            <details class="stage-b-generated-json">
+                <summary>View generated output JSON</summary>
+                <pre class="result-json"><code>@Model.GeneratedDraftJson</code></pre>
+            </details>
+            @if (Model.GeneratedDraftId is Guid pdfDraftId)
+            {
+                <form method="post" asp-page-handler="DownloadApplicationPdf" class="stage-a-pdf-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedStepCode" />
+                    <input type="hidden" name="draftId" value="@pdfDraftId" />
+                    <button type="submit" class="secondary-button">Download original application PDF</button>
+                </form>
+            }
+            <p class="review-note">Verify every address, date, service return, citation, and requested direction against the court record and applicable rules before filing.</p>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".stage-a-document-exclusions").forEach((group) => {
+            const selectAll = group.querySelector("[data-stage-a-select-all]");
+            const exclusions = Array.from(group.querySelectorAll("[data-stage-a-document-exclusion]"));
+            if (!selectAll || exclusions.length === 0) return;
+
+            const updateSelectAll = () => {
+                const checkedCount = exclusions.filter((checkbox) => checkbox.checked).length;
+                selectAll.checked = checkedCount === exclusions.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < exclusions.length;
+            };
+
+            selectAll.addEventListener("change", () => {
+                exclusions.forEach((checkbox) => {
+                    checkbox.checked = selectAll.checked;
+                });
+                selectAll.indeterminate = false;
+            });
+            exclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAll));
+            updateSelectAll();
+        });
+
+        document.querySelectorAll(".stage-b-docx-form").forEach((form) => {
+            const selectAll = form.querySelector("[data-stage-b-select-all]");
+            const exclusions = Array.from(form.querySelectorAll("[data-stage-b-field-exclusion]"));
+            const previewLines = Array.from(form.querySelectorAll("[data-stage-b-preview-line]"));
+            if (!selectAll || exclusions.length === 0) return;
+
+            const updatePreview = () => {
+                previewLines.forEach((line) => {
+                    const fieldName = line.dataset.stageBPreviewField;
+                    const excluded = fieldName !== undefined &&
+                        exclusions.some((checkbox) => checkbox.checked && checkbox.value === fieldName);
+                    line.hidden = excluded;
+                });
+            };
+
+            const updateSelectAll = () => {
+                const checkedCount = exclusions.filter((checkbox) => checkbox.checked).length;
+                selectAll.checked = checkedCount === exclusions.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < exclusions.length;
+            };
+
+            selectAll.addEventListener("change", () => {
+                exclusions.forEach((checkbox) => {
+                    checkbox.checked = selectAll.checked;
+                });
+                selectAll.indeterminate = false;
+                updatePreview();
+            });
+            exclusions.forEach((checkbox) => {
+                checkbox.addEventListener("change", () => {
+                    updateSelectAll();
+                    updatePreview();
+                });
+            });
+            updateSelectAll();
+            updatePreview();
+        });
+    </script>
+}

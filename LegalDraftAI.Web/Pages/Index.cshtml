@@ -1,0 +1,311 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Generate a draft";
+}
+
+<section class="hero">
+    <p class="eyebrow">LEGAL DRAFT AI</p>
+    <h1>Build a first draft from your case facts.</h1>
+    <p class="hero-copy">Choose a document, provide the facts, and review the generated draft before using it.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ApiStatusMessage))
+{
+    <div class="notice notice-warning" role="status">@Model.ApiStatusMessage</div>
+}
+
+<div class="workspace">
+    <form method="post" class="draft-form">
+        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Draft details</h2>
+                    <p>Tell us what kind of document to prepare and where it will be filed.</p>
+                </div>
+            </div>
+
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.DocumentType">Document type <span class="required-mark">*</span></label>
+                    <select asp-for="Input.DocumentType" class="form-select" required>
+                        <option value="">Select a document type</option>
+                        @foreach (var documentType in Model.DocumentTypes)
+                        {
+                            <option value="@documentType.Value">@documentType.Label</option>
+                        }
+                    </select>
+                    <span asp-validation-for="Input.DocumentType" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Jurisdiction">Jurisdiction</label>
+                    <input asp-for="Input.Jurisdiction" class="form-control" placeholder="e.g. Delhi" />
+                    <span asp-validation-for="Input.Jurisdiction" class="field-error"></span>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>Client facts</h2>
+                    <p>Include names, dates, case details, events, and any other relevant information.</p>
+                </div>
+            </div>
+
+            <div class="field">
+                <label asp-for="Input.ExtractedClientFacts">
+                    <span class="default-facts-label">Facts for the draft <span class="required-mark">*</span></span>
+                    <span class="absence-facts-label" hidden>Additional facts <span class="optional-tag">Optional</span></span>
+                </label>
+                <textarea asp-for="Input.ExtractedClientFacts" class="form-control facts-input" rows="9"
+                          placeholder="Describe the matter in your own words. Include known case numbers and dates, and leave out details that are not confirmed."
+                          required></textarea>
+                <div class="field-hint default-facts-hint">Required. Do not include confidential information unless you are authorized to share it with the configured drafting service.</div>
+                <div class="field-hint absence-facts-hint" hidden>All fields above are included with your case details. Add any relevant context here if needed.</div>
+                <span asp-validation-for="Input.ExtractedClientFacts" class="field-error"></span>
+            </div>
+        </section>
+
+        <section class="form-section conditional-section" data-document-type="AbsenceApplication" hidden>
+            <div class="section-heading">
+                <span class="section-number">03</span>
+                <div>
+                    <h2>Absence / exemption application</h2>
+                    <p>Complete the application details. Fields marked with an asterisk are required.</p>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.CourtName">Court name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.CourtName" class="form-control absence-required" placeholder="e.g. Court of the Metropolitan Magistrate" />
+                    <span asp-validation-for="Input.CourtName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.CaseTitle">Case title <span class="required-mark">*</span></label>
+                    <input asp-for="Input.CaseTitle" class="form-control absence-required" placeholder="e.g. State vs Ramesh Kumar" />
+                    <span asp-validation-for="Input.CaseTitle" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.CaseNumber">Case number <span class="required-mark">*</span></label>
+                    <input asp-for="Input.CaseNumber" class="form-control absence-required" placeholder="e.g. CC No. 245/2025" />
+                    <span asp-validation-for="Input.CaseNumber" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.HearingDate">Hearing date <span class="required-mark">*</span></label>
+                    <input asp-for="Input.HearingDate" type="date" class="form-control absence-required" />
+                    <span asp-validation-for="Input.HearingDate" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.ApplicantName">Applicant name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.ApplicantName" class="form-control absence-required" placeholder="Party seeking exemption" />
+                    <span asp-validation-for="Input.ApplicantName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.ApplicantStatus">Applicant status <span class="required-mark">*</span></label>
+                    <select asp-for="Input.ApplicantStatus" class="form-select absence-required">
+                        <option value="">Select status</option>
+                        <option value="Accused">Accused</option>
+                        <option value="Plaintiff">Plaintiff</option>
+                        <option value="Defendant">Defendant</option>
+                        <option value="Petitioner">Petitioner</option>
+                        <option value="Complainant">Complainant</option>
+                        <option value="Other">Other</option>
+                    </select>
+                    <span asp-validation-for="Input.ApplicantStatus" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.OppositePartyName">Opposite party name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.OppositePartyName" class="form-control absence-required" placeholder="Name of the other side" />
+                    <span asp-validation-for="Input.OppositePartyName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.ReasonForAbsence">Reason for absence <span class="required-mark">*</span></label>
+                    <input asp-for="Input.ReasonForAbsence" class="form-control absence-required" placeholder="e.g. Medical grounds, out of station, another court" />
+                    <span asp-validation-for="Input.ReasonForAbsence" class="field-error"></span>
+                </div>
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Criminal case details <span class="optional-tag">If applicable</span></h3>
+                <p>FIR, police station, district and sections are optional for non-criminal cases.</p>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.FirNumber">FIR number</label>
+                    <input asp-for="Input.FirNumber" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.PoliceStation">Police station</label>
+                    <input asp-for="Input.PoliceStation" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.District">District</label>
+                    <input asp-for="Input.District" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Sections">Sections</label>
+                    <input asp-for="Input.Sections" class="form-control" placeholder="e.g. Sections 420, 406 BNS" />
+                </div>
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Signature block</h3>
+                <p>Advocate and application details printed at the bottom of the draft.</p>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.AdvocateName">Advocate name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.AdvocateName" class="form-control absence-required" />
+                    <span asp-validation-for="Input.AdvocateName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.AdvocateEnrollmentNo">Advocate enrollment number</label>
+                    <input asp-for="Input.AdvocateEnrollmentNo" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Place">Place <span class="required-mark">*</span></label>
+                    <input asp-for="Input.Place" class="form-control absence-required" placeholder="Place of application" />
+                    <span asp-validation-for="Input.Place" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.ApplicationDate">Date of application <span class="required-mark">*</span></label>
+                    <input asp-for="Input.ApplicationDate" type="date" class="form-control absence-required" />
+                    <span asp-validation-for="Input.ApplicationDate" class="field-error"></span>
+                </div>
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Standard grounds <span class="optional-tag">Optional</span></h3>
+                <p>Select any grounds that apply. The selected codes are sent in <code>ExtraFields</code>.</p>
+            </div>
+            @if (Model.AbsenceGrounds.Count == 0)
+            {
+                <p class="field-hint">Ground options are unavailable while the API is offline.</p>
+            }
+            else
+            {
+                <div class="choice-grid">
+                    @foreach (var ground in Model.AbsenceGrounds)
+                    {
+                        <label class="choice-card">
+                            <input type="checkbox" name="Input.SelectedGroundCodes" value="@ground.Code"
+                                   checked="@Model.Input.SelectedGroundCodes.Contains(ground.Code)" />
+                            <span>@ground.Label</span>
+                        </label>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="form-section conditional-section" data-document-type="CertifiedCopyApplication" hidden>
+            <div class="section-heading">
+                <span class="section-number">03</span>
+                <div>
+                    <h2>Documents to request <span class="optional-tag">Optional</span></h2>
+                    <p>Select the certified copies needed. The selected codes are sent in <code>ExtraFields</code>.</p>
+                </div>
+            </div>
+            @if (Model.CourtDocuments.Count == 0)
+            {
+                <p class="field-hint">Document options are unavailable while the API is offline.</p>
+            }
+            else
+            {
+                <div class="choice-grid">
+                    @foreach (var document in Model.CourtDocuments)
+                    {
+                        <label class="choice-card">
+                            <input type="checkbox" name="Input.SelectedDocumentCodes" value="@document.Code"
+                                   checked="@Model.Input.SelectedDocumentCodes.Contains(document.Code)" />
+                            <span>@document.Label</span>
+                        </label>
+                    }
+                </div>
+            }
+        </section>
+
+        <details class="advanced-fields">
+            <summary>Advanced extra fields <span class="optional-tag">Optional</span></summary>
+            <p>Pass any additional API-specific fields as a JSON object. Values must be strings.</p>
+            <div class="field">
+                <label asp-for="Input.ExtraFieldsJson">Extra fields JSON</label>
+                <textarea asp-for="Input.ExtraFieldsJson" class="form-control code-input" rows="4"
+                          placeholder='{"additionalContext": "Any additional context"}'></textarea>
+                <span asp-validation-for="Input.ExtraFieldsJson" class="field-error"></span>
+            </div>
+        </details>
+
+        <div class="form-actions">
+            <p><span class="required-mark">*</span> Required fields</p>
+            <button type="submit" class="generate-button">
+                Generate draft <span aria-hidden="true">→</span>
+            </button>
+        </div>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ApiErrorMessage) || !string.IsNullOrWhiteSpace(Model.GeneratedDraftJson))
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">API RESPONSE</p>
+                    <h2>@(Model.ApiErrorMessage is null ? "Draft generated" : "Request details")</h2>
+                </div>
+                @if (Model.ApiErrorMessage is not null)
+                {
+                    <span class="result-status result-status-error">Needs attention</span>
+                }
+                else
+                {
+                    <span class="result-status">Review before use</span>
+                }
+            </div>
+            @if (Model.ApiErrorMessage is not null)
+            {
+                <p class="result-error">@Model.ApiErrorMessage</p>
+            }
+            @if (Model.GeneratedDraftJson is not null)
+            {
+                <pre class="result-json"><code>@Model.GeneratedDraftJson</code></pre>
+            }
+            @if (Model.ApiErrorMessage is null)
+            {
+                <p class="review-note">AI-generated legal drafts can contain errors. Have a qualified advocate verify all facts, citations, and requested relief before filing.</p>
+            }
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const documentType = document.getElementById("Input_DocumentType");
+            const sections = document.querySelectorAll(".conditional-section");
+
+            function updateConditionalFields() {
+                const absenceApplicationSelected = documentType.value === "AbsenceApplication";
+                sections.forEach((section) => {
+                    section.hidden = section.dataset.documentType !== documentType.value;
+                });
+
+                document.querySelectorAll(".absence-required").forEach((input) => {
+                    input.required = absenceApplicationSelected;
+                });
+                document.querySelector(".facts-input").required = !absenceApplicationSelected;
+                document.querySelector(".default-facts-label").hidden = absenceApplicationSelected;
+                document.querySelector(".absence-facts-label").hidden = !absenceApplicationSelected;
+                document.querySelector(".default-facts-hint").hidden = absenceApplicationSelected;
+                document.querySelector(".absence-facts-hint").hidden = !absenceApplicationSelected;
+            }
+
+            documentType.addEventListener("change", updateConditionalFields);
+            updateConditionalFields();
+        })();
+    </script>
+}

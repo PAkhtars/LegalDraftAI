@@ -1,0 +1,14 @@
+DEFENDANT / OPPOSITE PARTY DETAILS (DEMO)
+
+Name: Suresh Chand
+Status: Proprietor of M/s Super Traders
+Father's Name: Shri Ramesh Chand
+Address for service:
+  Shop No. 18, Chandni Chowk,
+  Delhi - 110006
+Alternate address:
+  H.No. 22, Gali No. 5, Karol Bagh, New Delhi - 110005
+Mobile: 98765XXXXX
+Email: supertraders.demo@example.com
+
+(Demo party sheet for case intake testing)

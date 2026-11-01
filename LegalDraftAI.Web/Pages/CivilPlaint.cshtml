@@ -1,0 +1,669 @@
+﻿@page
+@model CivilPlaintModel
+@{
+    ViewData["Title"] = "Generate a civil plaint";
+}
+
+<section class="hero">
+    <p class="eyebrow">CIVIL LITIGATION</p>
+    <h1>Build a civil plaint from your case facts.</h1>
+    <p class="hero-copy">Add the parties, suit details, property schedule, and material facts. Review the draft carefully before filing.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ApiStatusMessage))
+{
+    <div class="notice notice-warning" role="status">@Model.ApiStatusMessage</div>
+}
+
+<div class="workspace">
+    <form method="post" asp-page="/CivilPlaint" asp-antiforgery="true" enctype="multipart/form-data" class="draft-form" id="civil-plaint-form">
+        <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">00</span>
+                <div>
+                    <h2>Continue an existing case</h2>
+                    <p>Select a saved civil case to load its details and supporting documents.</p>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="SelectedCaseId">Saved civil case</label>
+                    <select asp-for="SelectedCaseId" class="form-select">
+                        <option value="">Start a new case</option>
+                        @foreach (var savedCase in Model.ExistingCases)
+                        {
+                            <option value="@savedCase.Id">
+                                @savedCase.Title
+                                (@(savedCase.PlaintiffName ?? "Plaintiff") vs @(savedCase.DefendantName ?? "Defendant"))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="field form-actions">
+                    <button type="submit" class="secondary-button" formaction="?handler=SelectCase" formnovalidate>
+                        Load selected case
+                    </button>
+                </div>
+            </div>
+            @if (Model.SelectedCase is not null)
+            {
+                <div class="checklist-summary checklist-complete">
+                    <strong>Loaded: @Model.SelectedCase.Title</strong>
+                    <span>@Model.SelectedCase.Documents.Count supporting document(s) saved with this case.</span>
+                </div>
+                @if (Model.SelectedCase.Documents.Count > 0)
+                {
+                    <details class="civil-plaint-collapsible-list">
+                        <summary>Show saved supporting documents</summary>
+                        <ul class="uploaded-list">
+                            @foreach (var document in Model.SelectedCase.Documents)
+                            {
+                                <li>
+                                    <strong>@document.DocumentCode</strong>
+                                    <span>
+                                        @document.OriginalFileName
+                                        <a asp-page-handler="Document"
+                                           asp-route-caseId="@Model.SelectedCase.Id"
+                                           asp-route-documentId="@document.Id"
+                                           target="_blank"
+                                           rel="noopener">View</a>
+                                        <a asp-page-handler="Document"
+                                           asp-route-caseId="@Model.SelectedCase.Id"
+                                           asp-route-documentId="@document.Id"
+                                           asp-route-download="true">Download</a>
+                                    </span>
+                                </li>
+                                @if (!string.IsNullOrWhiteSpace(document.ExtractedText))
+                                {
+                                    <li>
+                                        <details>
+                                            <summary>View extracted text</summary>
+                                            <pre class="result-json">@document.ExtractedText</pre>
+                                            @if (document.ExtractedText.Length <= 30000)
+                                            {
+                                                <button type="submit"
+                                                        class="secondary-button"
+                                                        name="documentId"
+                                                        value="@document.Id"
+                                                        formaction="?handler=TranslateToHindi"
+                                                        formnovalidate>
+                                                    Translate extracted text to Hindi
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <p class="field-hint">Hindi translation is available for extracted text up to 30,000 characters.</p>
+                                            }
+                                            @if (!string.IsNullOrWhiteSpace(document.TranslatedText))
+                                            {
+                                                <h3>Hindi translation</h3>
+                                                <pre class="result-json">@document.TranslatedText</pre>
+                                            }
+                                        </details>
+                                    </li>
+                                }
+                            }
+                        </ul>
+                    </details>
+                }
+            }
+        </section>
+
+        <details class="form-section civil-plaint-collapsible-section" open>
+            <summary class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Start with the dispute</h2>
+                    <p>Select the plaint nature or describe the dispute so we can identify the supporting documents.</p>
+                </div>
+            </summary>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.PlaintNature">Nature of plaint <span class="optional-tag">Optional if facts are provided</span></label>
+                    <select asp-for="Input.PlaintNature" class="form-select">
+                        <option value="">Select suit type</option>
+                        @foreach (var nature in Model.PlaintNatures)
+                        {
+                            <option value="@nature.Code">@nature.Label</option>
+                        }
+                    </select>
+                    <span asp-validation-for="Input.PlaintNature" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Jurisdiction">State / jurisdiction</label>
+                    <input asp-for="Input.Jurisdiction" class="form-control" placeholder="e.g. Rajasthan" />
+                </div>
+            </div>
+            <div class="field field-spaced">
+                <label asp-for="Input.Facts">Case facts <span class="optional-tag">Optional for research; required to generate</span></label>
+                <textarea asp-for="Input.Facts" class="form-control facts-input" rows="6" placeholder="Paste a short account of the dispute. For example, describe a debt, a property title dispute, or interference with possession."></textarea>
+                <span class="field-hint">Facts may be used to suggest a plaint nature. Do not include confidential information unless authorized to share it with the configured drafting service.</span>
+                <span asp-validation-for="Input.Facts" class="field-error"></span>
+            </div>
+            <div class="form-actions">
+                <p>Step 1 of 3 · Identify the matter</p>
+                <button type="submit" class="generate-button" formaction="?handler=Research" formnovalidate>
+                    Research documents <span aria-hidden="true">→</span>
+                </button>
+            </div>
+        </details>
+
+        @if (Model.ResearchResult is not null)
+        {
+            <details class="form-section research-section civil-plaint-collapsible-section" aria-live="polite">
+                <summary class="section-heading">
+                    <span class="section-number">02</span>
+                    <div>
+                        <h2>Document checklist</h2>
+                        <p>@Model.ResearchResult.PlaintNatureLabel — @Model.ResearchResult.Summary</p>
+                    </div>
+                </summary>
+                @if (Model.ResearchResult.RequiredDocuments.Count > 0)
+                {
+                    <p class="checklist-instructions">Tick documents already available to the client. Uploaded documents are added to the checklist after research is run again.</p>
+                    <div class="document-checklist">
+                        @foreach (var document in Model.ResearchResult.RequiredDocuments)
+                        {
+                            var alreadyHave = Model.ResearchResult.AlreadyHave.Contains(document.Code, StringComparer.OrdinalIgnoreCase);
+                            <label class="document-row">
+                                <input type="checkbox" name="Input.AlreadyHaveDocumentCodes" value="@document.Code" checked="@alreadyHave" />
+                                <span class="document-label">
+                                    <strong>@document.Label</strong>
+                                    <small>@document.Purpose · @document.Code</small>
+                                </span>
+                                <span class="priority-badge priority-@document.Priority.ToLowerInvariant()">@document.Priority</span>
+                                <span class="document-status @(alreadyHave ? "document-status-have" : "document-status-missing")">
+                                    @(alreadyHave ? "Already have" : "Missing")
+                                </span>
+                            </label>
+                        }
+                    </div>
+                    <div class="checklist-summary @(Model.ResearchResult.CanFileWithMinimumSet ? "checklist-complete" : "checklist-incomplete")">
+                        @if (Model.ResearchResult.CanFileWithMinimumSet)
+                        {
+                            <strong>Mandatory set complete.</strong>
+                            <span>You can proceed to generate the plaint. Review any recommended documents marked missing.</span>
+                        }
+                        else
+                        {
+                            <strong>@Model.ResearchResult.MissingMandatory.Count mandatory document(s) still missing.</strong>
+                            <span>Map and upload supporting documents, or mark documents already held by the client.</span>
+                        }
+                    </div>
+                    @if (Model.ResearchResult.MissingRecommended.Count > 0)
+                    {
+                        <p class="field-hint">Recommended documents still missing: @string.Join(", ", Model.ResearchResult.MissingRecommended).</p>
+                    }
+                    <div class="form-actions">
+                        <p>Step 2 of 3 · Confirm documents held</p>
+                        <button type="submit" class="secondary-button" formaction="?handler=Research" formnovalidate>
+                            Re-run research <span aria-hidden="true">↻</span>
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <p class="result-error">@Model.ResearchResult.Summary</p>
+                }
+            </details>
+
+            @if (Model.ResearchResult.RequiredDocuments.Count > 0)
+            {
+                <section class="form-section">
+                    <div class="section-heading">
+                        <span class="section-number">03</span>
+                        <div>
+                            <h2>Upload supporting documents</h2>
+                            <p>Choose a file and map it to the matching checklist item. Supported formats: PDF, DOCX, TXT, PNG, JPG, TIFF, BMP, GIF, and WebP. Images are read with local English and Hindi OCR.</p>
+                        </div>
+                    </div>
+                    @if (Model.UploadStatusMessage is not null)
+                    {
+                        <div class="upload-success" role="status">@Model.UploadStatusMessage</div>
+                    }
+                    <div id="upload-rows">
+                        <div class="upload-row">
+                            <div class="field">
+                                <label>Document file</label>
+                                <input class="form-control" type="file" name="files" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                            </div>
+                            <div class="field">
+                                <label>Checklist document</label>
+                                <select class="form-select" name="documentCodes">
+                                    <option value="">Map this file to a document</option>
+                                    @foreach (var document in Model.ResearchResult.RequiredDocuments)
+                                    {
+                                        <option value="@document.Code">@document.Label (@document.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <template id="upload-row-template">
+                        <div class="upload-row">
+                            <div class="field">
+                                <label>Document file</label>
+                                <input class="form-control" type="file" name="files" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                            </div>
+                            <div class="field">
+                                <label>Checklist document</label>
+                                <select class="form-select" name="documentCodes">
+                                    <option value="">Map this file to a document</option>
+                                    @foreach (var document in Model.ResearchResult.RequiredDocuments)
+                                    {
+                                        <option value="@document.Code">@document.Label (@document.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="button" class="remove-upload-button" aria-label="Remove this upload">Remove</button>
+                        </div>
+                    </template>
+                    <div class="upload-actions">
+                        <button type="button" class="text-button" id="add-upload">+ Add another document</button>
+                        <button type="submit" class="secondary-button" formaction="?handler=Upload" formnovalidate>
+                            Upload and extract <span aria-hidden="true">↑</span>
+                        </button>
+                    </div>
+                    @if (Model.UploadedDocuments.Count > 0)
+                    {
+                        <details class="civil-plaint-collapsible-list">
+                            <summary class="uploaded-heading">Extracted uploads (@Model.UploadedDocuments.Count)</summary>
+                            <ul class="uploaded-list">
+                                @foreach (var upload in Model.UploadedDocuments)
+                                {
+                                    var label = Model.ResearchResult.RequiredDocuments
+                                        .FirstOrDefault(document => document.Code.Equals(upload.DocumentCode, StringComparison.OrdinalIgnoreCase))?.Label ?? upload.DocumentCode;
+                                    <li><strong>@label</strong><span>@upload.FileName</span></li>
+                                }
+                            </ul>
+                        </details>
+                    }
+                    <p class="field-hint">Extracted text is stored server-side for this session and included as supporting context when the plaint is generated.</p>
+                </section>
+            }
+        }
+
+        @if (Model.ResearchResult is not null && Model.ResearchResult.RequiredDocuments.Count > 0)
+        {
+        <details class="form-section civil-plaint-collapsible-section" open>
+            <summary class="section-heading">
+                <span class="section-number">04</span>
+                <div>
+                    <h2>Court and suit</h2>
+                    <p>Identify the court, parties, and case particulars.</p>
+                </div>
+            </summary>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.CourtName">Court name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.CourtName" class="form-control" placeholder="e.g. Court of the Civil Judge (Senior Division), Jaipur" />
+                    <span asp-validation-for="Input.CourtName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.CaseTitle">Case title <span class="required-mark">*</span></label>
+                    <input asp-for="Input.CaseTitle" class="form-control" placeholder="e.g. Asha Devi v. Rajesh Kumar" />
+                    <span asp-validation-for="Input.CaseTitle" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.CaseNumber">Case number <span class="optional-tag">Optional</span></label>
+                    <input asp-for="Input.CaseNumber" class="form-control" placeholder="Leave blank if not assigned" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.CauseOfActionDate">Cause of action date <span class="optional-tag">Optional</span></label>
+                    <input asp-for="Input.CauseOfActionDate" type="date" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.PlaintiffName">Plaintiff name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.PlaintiffName" class="form-control" />
+                    <span asp-validation-for="Input.PlaintiffName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.DefendantName">Defendant name <span class="required-mark">*</span></label>
+                    <input asp-for="Input.DefendantName" class="form-control" />
+                    <span asp-validation-for="Input.DefendantName" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.PlaintiffAddress">Plaintiff address <span class="required-mark">*</span></label>
+                    <textarea asp-for="Input.PlaintiffAddress" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Input.PlaintiffAddress" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.DefendantAddress">Defendant address <span class="required-mark">*</span></label>
+                    <textarea asp-for="Input.DefendantAddress" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Input.DefendantAddress" class="field-error"></span>
+                </div>
+            </div>
+        </details>
+
+        <details class="form-section civil-plaint-collapsible-section" open>
+            <summary class="section-heading">
+                <span class="section-number">05</span>
+                <div>
+                    <h2>Suit property</h2>
+                    <p>Complete this schedule where the dispute concerns land or other property.</p>
+                </div>
+            </summary>
+            <div class="field">
+                <label asp-for="Input.SuitPropertyDescription">Property description <span class="optional-tag">Optional</span></label>
+                <textarea asp-for="Input.SuitPropertyDescription" class="form-control" rows="3" placeholder="Boundaries, location, title particulars, or other identifying details"></textarea>
+            </div>
+            <div class="field-grid field-grid-spaced">
+                <div class="field">
+                    <label asp-for="Input.SurveyNumber">Survey / plot number</label>
+                    <input asp-for="Input.SurveyNumber" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Area">Area</label>
+                    <input asp-for="Input.Area" class="form-control" placeholder="e.g. 2 hectares" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Village">Village</label>
+                    <input asp-for="Input.Village" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Tehsil">Tehsil</label>
+                    <input asp-for="Input.Tehsil" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.District">District</label>
+                    <input asp-for="Input.District" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Valuation">Suit valuation / court fee</label>
+                    <input asp-for="Input.Valuation" class="form-control" placeholder="As assessed for the applicable court fee" />
+                </div>
+            </div>
+        </details>
+
+        <details class="form-section civil-plaint-collapsible-section" open>
+            <summary class="section-heading">
+                <span class="section-number">06</span>
+                <div>
+                    <h2>Facts and relief</h2>
+                    <p>Give a clear chronology and list the legal grounds and reliefs requested.</p>
+                </div>
+            </summary>
+            <div class="field-grid field-grid-spaced">
+                <div class="field">
+                    <label asp-for="Input.Grounds">Legal grounds <span class="optional-tag">Optional</span></label>
+                    <textarea asp-for="Input.Grounds" class="form-control" rows="4" placeholder="Any legal grounds or provisions already identified"></textarea>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.ReliefsSought">Reliefs sought <span class="optional-tag">Optional</span></label>
+                    <textarea asp-for="Input.ReliefsSought" class="form-control" rows="4" placeholder="For example, declaration, possession, injunction, or recovery of money"></textarea>
+                </div>
+            </div>
+            <div class="field field-spaced">
+                <label asp-for="Input.Prayer">Prayer <span class="optional-tag">Optional</span></label>
+                <textarea asp-for="Input.Prayer" class="form-control" rows="3"></textarea>
+            </div>
+        </details>
+
+        <details class="form-section civil-plaint-collapsible-section" open>
+            <summary class="section-heading">
+                <span class="section-number">07</span>
+                <div>
+                    <h2>Filing details</h2>
+                    <p>These details are used for the place, date, and advocate portions of the draft.</p>
+                </div>
+            </summary>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.Place">Place</label>
+                    <input asp-for="Input.Place" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.Date">Date</label>
+                    <input asp-for="Input.Date" type="date" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.AdvocateName">Advocate name</label>
+                    <input asp-for="Input.AdvocateName" class="form-control" />
+                </div>
+                <div class="field">
+                    <label asp-for="Input.AdvocateEnrollmentNo">Enrollment number</label>
+                    <input asp-for="Input.AdvocateEnrollmentNo" class="form-control" />
+                </div>
+            </div>
+        </details>
+
+        @if (Model.UploadedDocuments.Count > 0)
+        {
+            <fieldset class="field stage-a-document-exclusions">
+                <legend>Supporting files for plaint generation</legend>
+                <p>Check files whose extracted text should be excluded from the generation request. Files remain attached to the case.</p>
+                <label class="form-check-label">
+                    <input class="form-check-input"
+                           type="checkbox"
+                           data-civil-plaint-select-all />
+                    Exclude all attached files
+                </label>
+                <ul class="stage-a-existing-files">
+                    @foreach (var upload in Model.UploadedDocuments)
+                    {
+                        <li class="stage-a-existing-file">
+                            <span>@upload.FileName</span>
+                            <label class="form-check-label">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       name="ExcludedDocumentIds"
+                                       value="@upload.Id"
+                                       data-civil-plaint-document-exclusion
+                                       checked="@Model.ExcludedDocumentIds.Contains(upload.Id)" />
+                                Exclude
+                            </label>
+                        </li>
+                    }
+                </ul>
+            </fieldset>
+        }
+
+        <div class="form-actions">
+            <p>
+                @if (Model.ResearchResult.CanFileWithMinimumSet)
+                {
+                    <span><span class="required-mark">*</span> Required details · Mandatory documents complete</span>
+                }
+                else
+                {
+                    <span>Complete all Critical documents before generating</span>
+                }
+            </p>
+            <label class="field-hint">
+                <input asp-for="Input.SaveDetailsToDatabase" />
+                Save these sections in separate SQL tables for reloading later
+            </label>
+            <p class="field-hint">Generated drafts are stored with the case. This option also saves the form sections separately so they can be restored when reopening it.</p>
+            <button type="submit" class="generate-button" disabled="@(!Model.ResearchResult.CanFileWithMinimumSet)">
+                Generate plaint <span aria-hidden="true">→</span>
+            </button>
+        </div>
+        }
+    </form>
+
+    @if (Model.ApiErrorMessage is not null || Model.Input.GeneratedDraftJson is not null)
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">GENERATED DRAFT</p>
+                    <h2>@(Model.ApiErrorMessage is null ? "Review your civil plaint" : "Request needs attention")</h2>
+                </div>
+                @if (Model.ApiErrorMessage is not null)
+                {
+                    <span class="result-status result-status-error">Needs attention</span>
+                }
+                else
+                {
+                    <span class="result-status">Review before use</span>
+                }
+            </div>
+            @if (Model.ApiErrorMessage is not null)
+            {
+                <p class="result-error">@Model.ApiErrorMessage</p>
+            }
+            @if (Model.Input.GeneratedDraftJson is not null)
+            {
+                <div class="civil-plaint-editor-toolbar">
+                    <div>
+                        <h3>Editable Word preview</h3>
+                        <p>Edit the document below, then download your edited copy as a DOCX file.</p>
+                    </div>
+                    <button type="submit"
+                            class="secondary-button"
+                            form="civil-plaint-docx-form"
+                            data-download-docx>
+                        Download edited DOCX <span aria-hidden="true">↓</span>
+                    </button>
+                </div>
+                <form method="post" asp-page-handler="DownloadDocx" id="civil-plaint-docx-form">
+                    <textarea asp-for="EditedDraftText" hidden data-edited-draft-input></textarea>
+                    <input asp-for="Input.GeneratedDraftJson" type="hidden" />
+                    <div class="field field-spaced civil-plaint-format-picker">
+                        <label asp-for="SelectedDraftFormatMasterId">Use saved Civil DOCX format <span class="optional-tag">Optional</span></label>
+                        <select asp-for="SelectedDraftFormatMasterId" class="form-select">
+                            <option value="">Use the standard plaint format</option>
+                            @foreach (var format in Model.CivilDraftFormatMasters)
+                            {
+                                <option value="@format.Id">@format.FormatName — @format.OriginalFileName</option>
+                            }
+                        </select>
+                        <span class="field-hint">When selected, matching placeholders such as <code>{{courtName}}</code> are replaced with generated plaint values. Placeholders without a matching value are cleared. Without a selection, the standard plaint DOCX is downloaded.</span>
+                        @if (!string.IsNullOrWhiteSpace(Model.DraftFormatMasterLoadError))
+                        {
+                            <span class="field-error">@Model.DraftFormatMasterLoadError</span>
+                        }
+                        else if (Model.CivilDraftFormatMasters.Count == 0)
+                        {
+                            <span class="field-hint">No Civil DOCX formats are saved yet. Add one from Civil Cases → Draft Format Master.</span>
+                        }
+                    </div>
+                    <fieldset class="field stage-a-document-exclusions civil-plaint-docx-exclusions">
+                        <legend>Fields to omit from DOCX</legend>
+                        <p>Select any fields from the generated JSON to remove their content from the downloaded Word document. The editable preview and saved generated draft remain unchanged.</p>
+                        <label class="form-check-label">
+                            <input class="form-check-input" type="checkbox" data-docx-fields-select-all />
+                            Exclude all fields
+                        </label>
+                        <ul class="stage-a-existing-files civil-plaint-docx-field-list">
+                            @foreach (var field in Model.GeneratedDraftFields)
+                            {
+                                <li class="stage-a-existing-file">
+                                    <span>@field.Label <code>(@field.Name)</code></span>
+                                    <label class="form-check-label">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="ExcludedDraftFields"
+                                               value="@field.Name"
+                                               data-docx-field-exclusion
+                                               checked="@Model.ExcludedDraftFields.Contains(field.Name, StringComparer.Ordinal)" />
+                                        Exclude
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    </fieldset>
+                </form>
+                <article class="civil-plaint-docx-preview"
+                         contenteditable="true"
+                         role="textbox"
+                         aria-label="Editable generated civil plaint"
+                         aria-multiline="true"
+                         spellcheck="true"
+                         data-docx-preview>@Model.GeneratedDraftPreviewText</article>
+                <p class="field-hint">Changes made here are included in the downloaded DOCX. The original generated draft remains saved with the case.</p>
+                @if (Model.Input.SaveDetailsToDatabase)
+                {
+                    <p class="upload-success" role="status">Court and suit, suit property, facts and relief, and filing details were saved in their separate SQL tables.</p>
+                }
+                else
+                {
+                    <p class="field-hint">The generated draft is saved to the case. The individual form sections were not separately saved.</p>
+                }
+                <form method="post" asp-page-handler="Export">
+                    <input asp-for="Input.GeneratedDraftJson" type="hidden" />
+                    <button type="submit" class="secondary-button" formnovalidate>
+                        Download original generated PDF <span aria-hidden="true">↓</span>
+                    </button>
+                </form>
+                <p class="review-note">AI-generated legal drafts may contain errors. Have a qualified advocate verify all facts, limitation, court fee, applicable law, and requested relief before filing.</p>
+            }
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const rows = document.getElementById("upload-rows");
+            const template = document.getElementById("upload-row-template");
+            const addButton = document.getElementById("add-upload");
+            if (rows && template && addButton) {
+                addButton.addEventListener("click", () => {
+                    rows.append(template.content.cloneNode(true));
+                });
+
+                rows.addEventListener("click", (event) => {
+                    if (event.target.closest(".remove-upload-button")) {
+                        event.target.closest(".upload-row").remove();
+                    }
+                });
+            }
+
+            document.querySelectorAll(".stage-a-document-exclusions").forEach((group) => {
+                const selectAll = group.querySelector("[data-civil-plaint-select-all]");
+                const exclusions = Array.from(group.querySelectorAll("[data-civil-plaint-document-exclusion]"));
+                if (!selectAll || exclusions.length === 0) return;
+
+                const updateSelectAll = () => {
+                    const checkedCount = exclusions.filter((checkbox) => checkbox.checked).length;
+                    selectAll.checked = checkedCount === exclusions.length;
+                    selectAll.indeterminate = checkedCount > 0 && checkedCount < exclusions.length;
+                };
+
+                selectAll.addEventListener("change", () => {
+                    exclusions.forEach((checkbox) => {
+                        checkbox.checked = selectAll.checked;
+                    });
+                    selectAll.indeterminate = false;
+                });
+                exclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAll));
+                updateSelectAll();
+            });
+
+            const preview = document.querySelector("[data-docx-preview]");
+            const editedDraftInput = document.querySelector("[data-edited-draft-input]");
+            const docxForm = document.getElementById("civil-plaint-docx-form");
+            if (preview && editedDraftInput && docxForm) {
+                editedDraftInput.value = preview.innerText;
+                docxForm.addEventListener("submit", () => {
+                    editedDraftInput.value = preview.innerText;
+                });
+            }
+
+            const docxFieldGroup = document.querySelector(".civil-plaint-docx-exclusions");
+            if (docxFieldGroup) {
+                const selectAllFields = docxFieldGroup.querySelector("[data-docx-fields-select-all]");
+                const fieldExclusions = Array.from(docxFieldGroup.querySelectorAll("[data-docx-field-exclusion]"));
+                if (selectAllFields && fieldExclusions.length > 0) {
+                    const updateSelectAllFields = () => {
+                        const checkedCount = fieldExclusions.filter((checkbox) => checkbox.checked).length;
+                        selectAllFields.checked = checkedCount === fieldExclusions.length;
+                        selectAllFields.indeterminate = checkedCount > 0 && checkedCount < fieldExclusions.length;
+                    };
+                    selectAllFields.addEventListener("change", () => {
+                        fieldExclusions.forEach((checkbox) => {
+                            checkbox.checked = selectAllFields.checked;
+                        });
+                        selectAllFields.indeterminate = false;
+                    });
+                    fieldExclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAllFields));
+                    updateSelectAllFields();
+                }
+            }
+        })();
+    </script>
+}

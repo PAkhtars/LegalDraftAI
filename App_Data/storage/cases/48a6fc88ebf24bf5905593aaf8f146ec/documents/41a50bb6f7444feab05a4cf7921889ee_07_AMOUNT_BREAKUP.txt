@@ -1,0 +1,20 @@
+AMOUNT BREAKUP / CALCULATION SHEET (DEMO)
+Suit for recovery – Rajesh Kumar Sharma vs Suresh Chand
+
+Particulars                              Amount (Rs.)
+-----------------------------------------------------
+Principal loan amount (01-04-2024)         5,00,000
+Less: Part payment (15-05-2025)             (50,000)
+Net principal outstanding                  4,50,000
+
+Interest @ 12% p.a. (illustrative)
+  From 01-04-2024 to 01-10-2026 (30 months
+  on reducing / simple basis as claimed)     60,000
+
+Total amount claimed in the suit           5,10,000
+(Rupees Five Lakh Ten Thousand only)
+
+Court fee payable: as per Suit Valuation / Court Fees Act (State)
+Interest pendente lite and future interest also prayed.
+
+(Demo calculation for LegalDraftAI testing only)

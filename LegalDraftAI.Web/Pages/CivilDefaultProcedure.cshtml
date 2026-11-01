@@ -1,0 +1,255 @@
+@page
+@model CivilDefaultProcedureModel
+@{
+    ViewData["Title"] = "Stage C · Non-appearance or default";
+}
+
+<section class="hero">
+    <p class="eyebrow">CIVIL LITIGATION · STAGE C</p>
+    <h1>Prepare the next step after non-appearance or dismissal for default.</h1>
+    <p class="hero-copy">Select the saved civil suit and the party's procedural situation. Review the tailored checklist, add relevant records, and generate a case-linked draft.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ApiErrorMessage))
+{
+    <div class="notice notice-warning" role="alert">@Model.ApiErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="notice notice-success" role="status">@Model.StatusMessage</div>
+}
+
+<div class="workspace">
+    <form method="post" asp-page-handler="SelectCase" class="draft-form">
+        <section class="form-section">
+            <div class="section-heading">
+                <span class="section-number">01</span>
+                <div>
+                    <h2>Select the existing civil suit</h2>
+                    <p>Only cases with a saved civil plaint draft are listed.</p>
+                </div>
+            </div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="SelectedCaseId">Civil suit <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedCaseId" class="form-select">
+                        <option value="">Select an existing civil suit</option>
+                        @foreach (var suit in Model.CivilSuits)
+                        {
+                            <option value="@suit.Id">
+                                @suit.Title (@(suit.PlaintiffName ?? "Plaintiff") vs @(suit.DefendantName ?? "Defendant"))
+                            </option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label asp-for="SelectedProcedureCode">Stage C situation <span class="required-mark">*</span></label>
+                    <select asp-for="SelectedProcedureCode" class="form-select">
+                        <option value="">Select the current procedural situation</option>
+                        @foreach (var procedure in Model.Procedures)
+                        {
+                            <option value="@procedure.Code">@procedure.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-actions">
+                <p>Choose a suit and situation to show the relevant procedural guidance and document checklist.</p>
+                <button type="submit" class="secondary-button">Load Stage C checklist <span aria-hidden="true">→</span></button>
+            </div>
+        </section>
+    </form>
+
+    @if (Model.SelectedCase is not null && Model.SelectedProcedure is not null)
+    {
+        <section class="draft-form stage-a-panel">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>@Model.SelectedProcedure.Label</h2>
+                    <p>@Model.SelectedProcedure.Scenario</p>
+                </div>
+            </div>
+
+            <div class="stage-a-reference">
+                <strong>Provision generally relevant</strong>
+                <span>@Model.SelectedProcedure.Provision</span>
+                <a href="https://www.indiacode.nic.in/handle/123456789/2190" target="_blank" rel="noopener noreferrer">
+                    Consult the Code of Civil Procedure, 1908 on India Code
+                </a>
+            </div>
+            <div class="notice notice-warning stage-a-caution">
+                A defendant's non-appearance does not automatically result in an ex parte decree. Due service and compliance with the applicable procedure must be established, and the court decides the appropriate course. Verify limitation, maintainability, local amendments, and the court record with a qualified advocate.
+            </div>
+
+            <div class="subsection-heading">
+                <h3>Documents for this situation</h3>
+                <p>The saved plaint is used as case background. Attach the relevant orders, service records, and evidence below; unavailable checklist items are not represented as already filed.</p>
+            </div>
+            <ul class="stage-a-checklist">
+                @foreach (var requirement in Model.Requirements)
+                {
+                    <li class="stage-a-checklist-item">
+                        <div class="stage-a-checklist-heading">
+                            <strong>@requirement.Label</strong>
+                            <span class="result-status @(requirement.AlreadyOnFile ? "" : "stage-a-status-pending")">
+                                @(requirement.AlreadyOnFile ? "Already on file" : "Usually relevant")
+                            </span>
+                        </div>
+                        <p>@requirement.Guidance</p>
+                        @if (requirement.AlreadyOnFile)
+                        {
+                            <ul class="stage-a-existing-files">
+                                @foreach (var document in requirement.ExistingDocuments)
+                                {
+                                    <li class="stage-a-existing-file">
+                                        <span>@document.OriginalFileName</span>
+                                        <form method="post"
+                                              asp-page-handler="RemoveDocument"
+                                              onsubmit="return confirm('Remove this attached document from the selected case?');">
+                                            <input type="hidden" asp-for="SelectedCaseId" />
+                                            <input type="hidden" asp-for="SelectedProcedureCode" />
+                                            <input type="hidden" name="documentId" value="@document.Id" />
+                                            <button type="submit" class="remove-document-button">Remove</button>
+                                        </form>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (Model.Uploads.Count > 0)
+            {
+                <form method="post" asp-page-handler="UploadDocuments" enctype="multipart/form-data" class="stage-a-upload-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedProcedureCode" />
+                    <div class="subsection-heading">
+                        <h3>Attach supporting records to this suit</h3>
+                        <p>Upload available orders, service records, or evidence applicable to this situation. Maximum total upload: 50 MB.</p>
+                    </div>
+                    @for (var index = 0; index < Model.Uploads.Count; index++)
+                    {
+                        <div class="field stage-a-upload-field">
+                            <input type="hidden" name="UploadInputs[@index].DocumentCode" value="@Model.Uploads[index].Code" />
+                            <label for="UploadInputs_@(index)__File">@Model.Uploads[index].Label</label>
+                            <input id="UploadInputs_@(index)__File"
+                                   name="UploadInputs[@index].File"
+                                   type="file"
+                                   class="form-control"
+                                   accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                        </div>
+                    }
+                    <div class="form-actions">
+                        <p>Only upload records relevant to this Stage C procedure.</p>
+                        <button type="submit" class="secondary-button">Upload selected records</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <p class="notice notice-success">All checklist document types are represented in the case file.</p>
+            }
+
+            <form method="post" asp-page-handler="Generate" class="stage-a-generate-form">
+                <input type="hidden" asp-for="SelectedCaseId" />
+                <input type="hidden" asp-for="SelectedProcedureCode" />
+                <div class="subsection-heading">
+                    <h3>Step 3 · Generate the Stage C application</h3>
+                    <p>Describe the procedural history, relevant dates, reason for non-appearance or delay where applicable, and the specific request to the court.</p>
+                </div>
+                @if (Model.DocumentsForSelectedProcedure.Count > 0)
+                {
+                    <fieldset class="field stage-a-document-exclusions">
+                        <legend>Documents to exclude from this request</legend>
+                        <p>Check documents whose extracted text should not be sent as context. They remain attached to the case.</p>
+                        <label class="form-check-label">
+                            <input class="form-check-input" type="checkbox" data-stage-a-select-all />
+                            Exclude all documents
+                        </label>
+                        <ul class="stage-a-existing-files">
+                            @foreach (var document in Model.DocumentsForSelectedProcedure)
+                            {
+                                <li class="stage-a-existing-file">
+                                    <span>@document.OriginalFileName</span>
+                                    <label class="form-check-label">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               name="ExcludedDocumentIds"
+                                               value="@document.Id"
+                                               data-stage-a-document-exclusion
+                                               checked="@(Model.ExcludedDocumentIds.Contains(document.Id))" />
+                                        Exclude
+                                    </label>
+                                </li>
+                            }
+                        </ul>
+                    </fieldset>
+                }
+                <div class="field">
+                    <label asp-for="ProcedureFacts">Procedural facts <span class="required-mark">*</span></label>
+                    <textarea asp-for="ProcedureFacts" class="form-control facts-input" rows="7"
+                              placeholder="Include hearing and order dates, service or knowledge details, reason for absence, chronology, and requested relief as relevant."></textarea>
+                </div>
+                <div class="form-actions">
+                    <p>The generated draft is saved separately under this civil suit.</p>
+                    <button type="submit" class="generate-button">Generate Stage C application <span aria-hidden="true">→</span></button>
+                </div>
+            </form>
+        </section>
+    }
+    else if (Model.SelectedCase is not null)
+    {
+        <div class="notice notice-warning" role="status">Select a Stage C situation to display its procedural guidance and checklist.</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GeneratedDraftJson))
+    {
+        <section class="result-panel" aria-live="polite">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">SAVED CASE DRAFT</p>
+                    <h2>Stage C application generated</h2>
+                </div>
+                <span class="result-status">Review before filing</span>
+            </div>
+            <pre class="result-json"><code>@Model.GeneratedDraftJson</code></pre>
+            @if (Model.GeneratedDraftId is Guid draftId)
+            {
+                <form method="post" asp-page-handler="DownloadApplicationPdf" class="stage-a-pdf-form">
+                    <input type="hidden" asp-for="SelectedCaseId" />
+                    <input type="hidden" asp-for="SelectedProcedureCode" />
+                    <input type="hidden" name="draftId" value="@draftId" />
+                    <button type="submit" class="secondary-button">Download application PDF</button>
+                </form>
+            }
+            <p class="review-note">Have a qualified advocate verify the applicable rule, service and hearing records, limitation, local requirements, factual assertions, and supporting documents before filing.</p>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".stage-a-document-exclusions").forEach((group) => {
+            const selectAll = group.querySelector("[data-stage-a-select-all]");
+            const exclusions = Array.from(group.querySelectorAll("[data-stage-a-document-exclusion]"));
+            if (!selectAll || exclusions.length === 0) return;
+
+            const updateSelectAll = () => {
+                const checkedCount = exclusions.filter((checkbox) => checkbox.checked).length;
+                selectAll.checked = checkedCount === exclusions.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < exclusions.length;
+            };
+
+            selectAll.addEventListener("change", () => {
+                exclusions.forEach((checkbox) => {
+                    checkbox.checked = selectAll.checked;
+                });
+                selectAll.indeterminate = false;
+            });
+            exclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAll));
+            updateSelectAll();
+        });
+    </script>
+}

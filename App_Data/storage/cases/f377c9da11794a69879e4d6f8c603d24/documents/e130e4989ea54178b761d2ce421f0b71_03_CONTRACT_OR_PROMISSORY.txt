@@ -1,0 +1,24 @@
+PROMISSORY NOTE / LOAN ACKNOWLEDGEMENT (DEMO)
+Date: 01-04-2024
+Place: New Delhi
+
+I, Suresh Chand, Proprietor of M/s Super Traders, having office at
+Shop No. 18, Chandni Chowk, Delhi - 110006, hereby acknowledge that
+I have received a friendly loan of Rs. 5,00,000/- (Rupees Five Lakh only)
+from Shri Rajesh Kumar Sharma, resident of House No. 42, Sector 15, Rohini,
+New Delhi - 110085, on 01-04-2024.
+
+I promise to repay the said sum of Rs. 5,00,000/- together with interest
+at the rate of 12% per annum within 12 months, i.e. on or before 31-03-2025.
+
+In case of default, the lender shall be entitled to recover the principal
+and interest through legal proceedings.
+
+Sd/-
+Suresh Chand
+(Borrower / Defendant)
+
+Witness 1: Amit Verma, Delhi
+Witness 2: Neha Gupta, Delhi
+
+(Demo document for LegalDraftAI testing only)

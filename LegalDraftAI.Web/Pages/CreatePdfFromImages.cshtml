@@ -1,0 +1,97 @@
+@page
+@model CreatePdfFromImagesModel
+@{
+    ViewData["Title"] = "Create DOCX from images";
+}
+
+<section class="hero">
+    <p class="eyebrow">UTILITIES · OCR</p>
+    <h1>Extract text from images into an editable Word document.</h1>
+    <p class="hero-copy">Upload multiple images containing English or Hindi text. Review the OCR result, edit it, and download it as a DOCX.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="notice notice-warning" role="alert">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="notice notice-success" role="status">@Model.StatusMessage</div>
+}
+
+<div class="workspace">
+    <section class="draft-form image-ocr-panel">
+        <div class="section-heading">
+            <span class="section-number">01</span>
+            <div>
+                <h2>Upload images and run OCR</h2>
+                <p>Supported formats: PNG, JPG, TIFF, BMP, GIF, and WebP. Maximum 20 images and 50 MB total.</p>
+            </div>
+        </div>
+        <form method="post" asp-page-handler="Extract" enctype="multipart/form-data">
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <div class="field-grid">
+                <div class="field">
+                    <label for="images">Image files</label>
+                    <input id="images"
+                           class="form-control"
+                           type="file"
+                           name="files"
+                           accept=".png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp,image/*"
+                           multiple />
+                </div>
+                <div class="field">
+                    <label asp-for="OutputFileName">Download file name</label>
+                    <div class="image-ocr-filename">
+                        <input asp-for="OutputFileName" class="form-control" placeholder="ScannedDocuments" />
+                        <span>.docx</span>
+                    </div>
+                    <span asp-validation-for="OutputFileName" class="field-error"></span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <p>OCR runs locally using English and Hindi language data.</p>
+                <button type="submit" class="generate-button">Extract text <span aria-hidden="true">→</span></button>
+            </div>
+        </form>
+    </section>
+
+    @if (Model.HasExtractedText)
+    {
+        <section class="draft-form image-ocr-result">
+            <div class="section-heading">
+                <span class="section-number">02</span>
+                <div>
+                    <h2>Editable OCR preview</h2>
+                    <p>Review and correct the recognized text before exporting the Word document.</p>
+                </div>
+            </div>
+            <form method="post" asp-page-handler="DownloadDocx">
+                <div class="field">
+                    <label asp-for="OutputFileName">Download file name</label>
+                    <div class="image-ocr-filename">
+                        <input asp-for="OutputFileName" class="form-control" placeholder="ScannedDocuments" />
+                        <span>.docx</span>
+                    </div>
+                    <span asp-validation-for="OutputFileName" class="field-error"></span>
+                </div>
+                <div class="field field-spaced">
+                    <label asp-for="ExtractedText">OCR text preview</label>
+                    <textarea asp-for="ExtractedText"
+                              class="form-control image-ocr-preview"
+                              rows="24"
+                              spellcheck="true"></textarea>
+                    <span asp-validation-for="ExtractedText" class="field-error"></span>
+                </div>
+                <div class="form-actions">
+                    <p>Your edits are included in the downloaded DOCX.</p>
+                    <button type="submit" class="generate-button">Download editable DOCX <span aria-hidden="true">↓</span></button>
+                </div>
+            </form>
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

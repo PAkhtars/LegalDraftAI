@@ -1,0 +1,20 @@
+ACCOUNT LEDGER / PAYMENT SUMMARY (DEMO)
+Lender: Rajesh Kumar Sharma
+Borrower: Suresh Chand / M/s Super Traders
+
+Date          Particulars                    Debit (Rs.)    Credit (Rs.)    Balance (Rs.)
+01-04-2024    Loan disbursed (cash/NEFT)     5,00,000       -               5,00,000
+01-07-2024    Interest accrued (3 months)    15,000         -               5,15,000
+01-10-2024    Interest accrued (3 months)    15,000         -               5,30,000
+01-01-2025    Interest accrued (3 months)    15,000         -               5,45,000
+01-04-2025    Interest accrued (3 months)    15,000         -               5,60,000
+15-05-2025    Part payment received          -              50,000          5,10,000
+
+Outstanding as on 01-10-2026 (approx.):
+Principal:     Rs. 4,50,000
+Interest:      Rs. 60,000 (illustrative)
+Total claimed: Rs. 5,10,000
+
+Bank reference (demo): NEFT UTR DEMO123456789 dated 01-04-2024
+
+(Demo ledger for testing – figures are illustrative)

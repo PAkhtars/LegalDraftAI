@@ -1,0 +1,154 @@
+@page
+@model DraftFormatMasterModel
+@{
+    ViewData["Title"] = "Draft format master";
+}
+
+<section class="hero">
+    <p class="eyebrow">DRAFT LIBRARY</p>
+    <h1>Create and manage draft formats.</h1>
+    <p class="hero-copy">Save reusable draft names with uploaded DOCX formats under Civil or Criminal matters.</p>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <div class="notice notice-warning" role="alert">@Model.ErrorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(Model.StatusMessage))
+{
+    <div class="notice notice-success" role="status">@Model.StatusMessage</div>
+}
+
+<div class="workspace">
+    <section class="draft-form">
+        <div class="section-heading">
+            <span class="section-number">01</span>
+            <div>
+                <h2>@(Model.EditingId is null ? "Create a draft format" : "Edit draft format")</h2>
+                <p>Enter a clear format name and upload its reusable Word format.</p>
+            </div>
+        </div>
+        <form method="post" asp-page-handler="Save" enctype="multipart/form-data">
+            <input asp-for="EditingId" type="hidden" />
+            <input asp-for="CategoryFilter" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+            <div class="field-grid">
+                <div class="field">
+                    <label asp-for="Input.Category">Matter category</label>
+                    <select asp-for="Input.Category" class="form-select">
+                        <option value="Civil">Civil</option>
+                        <option value="Criminal">Criminal</option>
+                    </select>
+                    <span asp-validation-for="Input.Category" class="field-error"></span>
+                </div>
+                <div class="field">
+                    <label asp-for="Input.FormatName">Draft format name</label>
+                    <input asp-for="Input.FormatName" class="form-control" placeholder="e.g. Plaint for recovery of possession" />
+                    <span asp-validation-for="Input.FormatName" class="field-error"></span>
+                </div>
+            </div>
+            <div class="field field-spaced">
+                <label asp-for="Input.Description">Description <span class="optional-tag">Optional</span></label>
+                <input asp-for="Input.Description" class="form-control" placeholder="Short note about when this format is used" />
+                <span asp-validation-for="Input.Description" class="field-error"></span>
+            </div>
+            <div class="field field-spaced">
+                <label asp-for="Input.File">Draft format DOCX @(Model.EditingId is null ? "" : "(optional to replace)")</label>
+                <input asp-for="Input.File" class="form-control" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <span asp-validation-for="Input.File" class="field-error"></span>
+                @if (Model.EditingId is not null && Model.EditingDraftFileName is not null)
+                {
+                    <span class="field-hint">Current file: @Model.EditingDraftFileName. Upload a new DOCX only if you want to replace it.</span>
+                }
+                else if (Model.EditingId is not null)
+                {
+                    <span class="field-hint">No DOCX is stored for this older master. Upload a DOCX file to complete it.</span>
+                }
+                else
+                {
+                    <span class="field-hint">Upload a valid .docx Word document. Maximum file size: 20 MB.</span>
+                }
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="generate-button">@(Model.EditingId is null ? "Save draft format" : "Update draft format")</button>
+                @if (Model.EditingId is not null)
+                {
+                    <button type="submit" class="secondary-button" formaction="?handler=CancelEdit" formnovalidate>Cancel edit</button>
+                }
+            </div>
+        </form>
+    </section>
+
+    <section class="draft-form draft-format-list">
+        <div class="section-heading">
+            <span class="section-number">02</span>
+            <div>
+                <h2>Saved draft formats</h2>
+                <p>Browse, edit, or remove reusable formats.</p>
+            </div>
+        </div>
+        <form method="post" asp-page-handler="Filter" class="draft-format-filter">
+            <div class="field">
+                <label asp-for="CategoryFilter">Show category</label>
+                <select asp-for="CategoryFilter" class="form-select">
+                    <option value="Civil">Civil</option>
+                    <option value="Criminal">Criminal</option>
+                </select>
+            </div>
+            <button type="submit" class="secondary-button">Show formats</button>
+        </form>
+
+        @if (Model.DraftFormats.Count == 0)
+        {
+            <p class="stage-a-empty-drafts">No @Model.CategoryFilter.ToLowerInvariant() draft formats have been saved yet.</p>
+        }
+        else
+        {
+            <ul class="draft-format-items">
+                @foreach (var item in Model.DraftFormats)
+                {
+                    <li>
+                        <div class="draft-format-item-heading">
+                            <div>
+                                <span class="draft-format-category">@item.Category</span>
+                                <h3>@item.FormatName</h3>
+                                @if (!string.IsNullOrWhiteSpace(item.Description))
+                                {
+                                    <p>@item.Description</p>
+                                }
+                            </div>
+                            <div class="draft-format-actions">
+                                <form method="post" asp-page-handler="Edit">
+                                    <input type="hidden" asp-for="CategoryFilter" />
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="submit" class="secondary-button">Edit</button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" onsubmit="return confirm('Delete this draft format master?');">
+                                    <input type="hidden" asp-for="CategoryFilter" />
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="submit" class="remove-upload-button">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(item.DraftFormatPath) &&
+                             !string.IsNullOrWhiteSpace(item.OriginalFileName))
+                        {
+                            <div class="draft-format-file-info">
+                                <a asp-page-handler="Download"
+                                   asp-route-id="@item.Id"
+                                   asp-route-category="@item.Category"
+                                   class="secondary-button">Download @item.OriginalFileName</a>
+                                <span>@(item.FileSizeBytes / 1024) KB · DOCX</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="field-hint">DOCX file needs to be uploaded for this older master.</p>
+                        }
+                        <span class="draft-format-date">Saved @item.CreatedAtUtc.ToLocalTime().ToString("g")</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
