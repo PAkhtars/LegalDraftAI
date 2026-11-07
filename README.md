@@ -1,13 +1,13 @@
 # Legal Draft AI
 
-ASP.NET Core 8 Web API that helps advocates generate court-ready legal documents using Groq.
+ASP.NET Core 8 Web API that helps advocates generate court-ready legal documents using Groq, with Groq or Google Gemini selectable for Civil Plaint generation.
 
 ## Features
 
 - **Document research (intake)** – required documents by plaint nature + gap analysis
 - **Document extraction** – Upload PDF / DOCX / TXT and common image files (PNG, JPG, TIFF, BMP, GIF, WebP); images use local English + Hindi OCR
 - **Hindi translation** – Translate extracted supporting-document text into Hindi while keeping the original text unchanged
-- **AI drafting** – Groq generates structured JSON for Bail Application, Advocate Bill, etc.
+- **AI drafting** – Groq generates structured JSON for supported documents; the Civil Plaint page also lets users choose Google Gemini.
 - **Stage A civil applications** – Select a saved civil plaint, review an application-specific supporting-document checklist, upload outstanding documents, and save a separate procedural-application draft to the case.
 - **Stage B summons service** – Prepare a first summons, fresh service, substituted service, or service-directions application linked to a saved civil suit. Review a formatted DOCX preview, omit selected generated fields, and download the resulting DOCX.
 - **Stage C non-appearance/default** – Prepare an ex parte, participation, set-aside, restoration, or delay-condonation application with a tailored evidence checklist.
@@ -19,6 +19,7 @@ ASP.NET Core 8 Web API that helps advocates generate court-ready legal documents
 
 - .NET 8 SDK
 - Groq API key → https://console.groq.com/keys
+- Google Gemini API key (optional; required only when Gemini is selected for a Civil Plaint) → https://aistudio.google.com/app/apikey
 
 The API project includes English and Hindi Tesseract OCR data files in `tessdata/`; keep these files alongside the project when publishing. OCR runs locally and does not send images to the drafting provider.
 The trained data files are from the official [tessdata_fast repository](https://github.com/tesseract-ocr/tessdata_fast) and are distributed under Apache 2.0.
@@ -39,6 +40,17 @@ Or set the environment variable:
 ```bash
 export Groq__ApiKey=your-groq-api-key
 ```
+
+For Civil Plaint generation with Gemini, configure the optional provider similarly:
+
+```json
+"Gemini": {
+  "ApiKey": "your-gemini-api-key",
+  "Model": "gemini-3.8-flash"
+}
+```
+
+Or set `Gemini__ApiKey` as an environment variable. The Civil Plaint page defaults to Groq and includes a provider selector for Groq or Google Gemini. Other document-generation workflows continue to use Groq.
 
 ### 3. Run
 
@@ -121,7 +133,7 @@ The Stage B summons-service page is available at `/CivilSummonsService`. It sele
 
 The Stage C default-procedure page is available at `/CivilDefaultProcedure`. It supports Order IX Rule 6 requests to proceed ex parte, Order IX Rule 7 participation requests, Order IX Rule 13 applications to set aside an ex parte decree, Order IX Rule 9 restoration applications, and a separate Section 5 Limitation Act delay-condonation option where applicable. The workflow supports application-specific document upload/removal, per-document context exclusions, draft generation, and PDF export. It uses the existing `StageApplications`, `CaseDrafts`, and `CaseDocuments` schema; StageC records are linked by stage and application code. Non-appearance does not automatically result in an ex parte decree, and limitation and maintainability require case-specific verification.
 
-You can easily add more by extending the system prompt + JSON schema in `GroqDraftService` and adding a PDF template in `PdfExportService`.
+You can easily add more by extending the shared system prompt and JSON schema in `GroqDraftService` and adding a PDF template in `PdfExportService`.
 
 
 ## Case storage (MSSQL)

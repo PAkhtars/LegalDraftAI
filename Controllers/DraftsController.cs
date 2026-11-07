@@ -15,6 +15,7 @@ public class DraftsController : ControllerBase
 {
     private readonly IDocumentExtractionService _extractor;
     private readonly IGroqDraftService _draftService;
+    private readonly IGeminiDraftService _geminiDraftService;
     private readonly IPdfExportService _pdfService;
     private readonly ILogger<DraftsController> _logger;
     private readonly AppDbContext _db;
@@ -25,6 +26,7 @@ public class DraftsController : ControllerBase
     public DraftsController(
         IDocumentExtractionService extractor,
         IGroqDraftService draftService,
+        IGeminiDraftService geminiDraftService,
         IPdfExportService pdfService,
         ILogger<DraftsController> logger,
         AppDbContext db,
@@ -34,6 +36,7 @@ public class DraftsController : ControllerBase
     {
         _extractor = extractor;
         _draftService = draftService;
+        _geminiDraftService = geminiDraftService;
         _pdfService = pdfService;
         _logger = logger;
         _db = db;
@@ -108,6 +111,62 @@ public class DraftsController : ControllerBase
         }
     }
 
+    /// <summary>Refine one civil plaint field without adding or changing its substance.</summary>
+    [HttpPost("refine-civil-plaint-text")]
+    public async Task<IActionResult> RefineCivilPlaintText(
+        [FromBody] CivilPlaintTextRefinementRequest request,
+        CancellationToken ct)
+    {
+        var supportedFields = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "facts",
+            "propertyDescription",
+            "grounds",
+            "reliefsSought",
+            "prayer"
+        };
+        if (string.IsNullOrWhiteSpace(request.Field) ||
+            !supportedFields.Contains(request.Field))
+            return BadRequest(new { error = "Select a supported civil plaint field to refine." });
+        if (string.IsNullOrWhiteSpace(request.Text))
+            return BadRequest(new { error = "Enter text before requesting AI refinement." });
+        if (request.Text.Length > 20000)
+            return BadRequest(new { error = "Field text must be 20,000 characters or fewer." });
+
+        try
+        {
+            var refinedText = await _draftService.RefineCivilPlaintTextAsync(
+                request.Field,
+                request.Text,
+                ct);
+            return Ok(new { refinedText });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogError(exception, "Civil plaint AI text refinement provider request failed.");
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                error = "AI refinement failed. Check the configured Groq service and try again."
+            });
+        }
+        catch (JsonException exception)
+        {
+            _logger.LogError(exception, "Civil plaint AI text refinement returned invalid JSON.");
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                error = "AI refinement returned an invalid response. Try again."
+            });
+        }
+    }
+
     /// <summary>
     /// Generate a structured legal draft from plain text facts (no file upload).
     /// For AbsenceApplication you can pass selectedGroundCodes via ExtraFields.
@@ -120,6 +179,25 @@ public class DraftsController : ControllerBase
 
         if (string.IsNullOrWhiteSpace(request.ExtractedClientFacts))
             return BadRequest(new { error = "ExtractedClientFacts is required" });
+        var isCivilPlaint = string.Equals(
+            request.DocumentType,
+            "CivilPlaint",
+            StringComparison.OrdinalIgnoreCase);
+        if (!string.Equals(request.AiProvider, "Groq", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.AiProvider, "Gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "AiProvider must be Groq or Gemini." });
+        }
+        if (!isCivilPlaint &&
+            string.Equals(request.AiProvider, "Gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "Gemini provider selection is currently available only for CivilPlaint drafts." });
+        }
+        if (!string.Equals(request.OutputLanguage, "English", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.OutputLanguage, "Hindi", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "OutputLanguage must be English or Hindi." });
+        }
         if (request.CivilPlaintDetails is not null &&
             !string.Equals(request.DocumentType, "CivilPlaint", StringComparison.OrdinalIgnoreCase))
         {
@@ -156,7 +234,23 @@ public class DraftsController : ControllerBase
             request.ExtraFields["selectedDocumentLabels"] = string.Join(" | ", labels);
         }
 
-        var result = await _draftService.GenerateStructuredDraftAsync(request, ct);
+        var useGemini = isCivilPlaint &&
+                        string.Equals(request.AiProvider, "Gemini", StringComparison.OrdinalIgnoreCase);
+        DraftResult result;
+        try
+        {
+            result = useGemini
+                ? await _geminiDraftService.GenerateStructuredDraftAsync(request, ct)
+                : await _draftService.GenerateStructuredDraftAsync(request, ct);
+        }
+        catch (HttpRequestException exception) when (useGemini)
+        {
+            _logger.LogError(exception, "Gemini civil plaint generation request failed.");
+            return StatusCode(StatusCodes.Status502BadGateway, new
+            {
+                error = "Gemini draft generation failed. Check the Gemini service configuration and try again."
+            });
+        }
 
         if (!result.Success)
             return BadRequest(new { error = result.Error });
@@ -181,7 +275,7 @@ public class DraftsController : ControllerBase
     public async Task<IActionResult> GenerateFromFiles(
         [FromForm] string documentType,
         [FromForm] string jurisdiction,
-        [FromForm] List<IFormFile> files,
+        List<IFormFile> files,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(documentType))
@@ -236,7 +330,7 @@ public class DraftsController : ControllerBase
     [RequestSizeLimit(50 * 1024 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = 50 * 1024 * 1024)]
     public async Task<IActionResult> ExtractMappedDocuments(
-        [FromForm] List<IFormFile> files,
+        List<IFormFile> files,
         [FromForm] List<string> documentCodes,
         [FromForm] Guid? caseId,
         [FromForm] string? caseTitle,
@@ -338,10 +432,18 @@ public class DraftsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.DocumentType) || string.IsNullOrWhiteSpace(request.Json))
             return BadRequest(new { error = "DocumentType and Json are required" });
+        if (!string.Equals(request.OutputLanguage, "English", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(request.OutputLanguage, "Hindi", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "OutputLanguage must be English or Hindi." });
+        }
 
         try
         {
-            var pdfBytes = _pdfService.GenerateFromJson(request.DocumentType, request.Json);
+            var pdfBytes = _pdfService.GenerateFromJson(
+                request.DocumentType,
+                request.Json,
+                request.OutputLanguage);
             var fileName = $"{request.DocumentType}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
             return File(pdfBytes, "application/pdf", fileName);
         }
@@ -423,7 +525,7 @@ public class DraftsController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = 50 * 1024 * 1024)]
     [ProducesResponseType<IReadOnlyList<ImageOcrResult>>(StatusCodes.Status200OK)]
     public async Task<IActionResult> ExtractImageText(
-        [FromForm] List<IFormFile> files,
+        List<IFormFile> files,
         CancellationToken cancellationToken)
     {
         if (files.Count == 0)

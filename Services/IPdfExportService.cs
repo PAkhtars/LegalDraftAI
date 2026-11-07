@@ -9,10 +9,10 @@ public interface IPdfExportService
     byte[] GenerateCertifiedCopyApplicationPdf(Models.CertifiedCopyApplicationDraft draft);
     byte[] GenerateCurativePetitionPdf(Models.CurativePetitionDraft draft);
     byte[] GenerateComplaintNonRegistrationFirPdf(Models.ComplaintNonRegistrationFirDraft draft);
-    byte[] GenerateCivilPlaintPdf(Models.CivilPlaintDraft draft);
+    byte[] GenerateCivilPlaintPdf(Models.CivilPlaintDraft draft, string outputLanguage = "English");
     byte[] GenerateCivilStageAApplicationPdf(Models.CivilStageAApplicationDraft draft);
     byte[] GenerateCivilStageAProposedNoticePdf(Models.CivilStageAProposedNoticeDraft draft);
     byte[] GenerateCivilStageBServiceApplicationPdf(Models.CivilStageBServiceApplicationDraft draft);
     byte[] GenerateAffidavitPdf(string affidavitText);
-    byte[] GenerateFromJson(string documentType, string json);
+    byte[] GenerateFromJson(string documentType, string json, string outputLanguage = "English");
 }

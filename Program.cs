@@ -3,6 +3,7 @@ using LegalDraftAI.Models;
 using LegalDraftAI.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
+using GTranslate.Translators;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +16,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Legal Draft AI API",
         Version = "1.0.0",
-        Description = "Case files, document research, and court-ready legal drafts (DeepSeek / Groq compatible)."
+        Description = "Case files, document research, and court-ready legal drafts using Groq or Gemini."
     });
     options.CustomSchemaIds(type => type.FullName?.Replace("+", ".") ?? type.Name);
 });
@@ -35,6 +36,15 @@ builder.Services.AddHttpClient<IGroqDraftService, GroqDraftService>(client =>
     client.Timeout = TimeSpan.FromMinutes(3);
 });
 
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection(GeminiOptions.SectionName));
+
+builder.Services.AddHttpClient<IGeminiDraftService, GeminiDraftService>(client =>
+{
+    client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
+    client.Timeout = TimeSpan.FromMinutes(3);
+});
+
 builder.Services.AddScoped<IDocumentExtractionService, DocumentExtractionService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IDocxExportService, DocxExportService>();
@@ -42,6 +52,8 @@ builder.Services.AddScoped<IDocumentResearchService, DocumentResearchService>();
 builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 builder.Services.AddScoped<ICaseService, CaseService>();
 builder.Services.AddScoped<IDraftFormatMasterService, DraftFormatMasterService>();
+builder.Services.AddSingleton<GoogleTranslator>();
+builder.Services.AddSingleton<ITranslationService, GTranslateService>();
 
 builder.Services.AddCors(options =>
 {
@@ -97,7 +109,7 @@ using (var scope = app.Services.CreateScope())
                     Facts NVARCHAR(MAX) NULL,
                     LegalGrounds NVARCHAR(MAX) NULL,
                     ReliefsSought NVARCHAR(MAX) NULL,
-                    Prayer NVARCHAR(5000) NULL,
+                    Prayer NVARCHAR(MAX) NULL,
                     CONSTRAINT FK_CivilPlaintFactsAndReliefRecords_Cases
                         FOREIGN KEY (CaseId) REFERENCES dbo.Cases(Id) ON DELETE CASCADE
                 );

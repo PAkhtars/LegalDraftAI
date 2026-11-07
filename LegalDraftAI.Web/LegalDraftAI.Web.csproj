@@ -6,4 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="GTranslate" Version="2.4.0" />
+  </ItemGroup>
+
 </Project>

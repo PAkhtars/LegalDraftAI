@@ -27,6 +27,7 @@ public class IntakeController : ControllerBase
             n.Code,
             n.Label,
             n.Category,
+            n.PlaintGroup,
             n.Description,
             n.SuggestedDocumentType
         }));

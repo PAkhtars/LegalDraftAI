@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using LegalDraftAI.Models;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -8,6 +9,14 @@ namespace LegalDraftAI.Services;
 
 public class PdfExportService : IPdfExportService
 {
+    private static readonly Regex NumberedParagraphPrefixRegex = new(
+        @"^(?:\s*(?:\d+(?:\.\d+)+|[०-९]+(?:\.[०-९]+)+|\d+[.)]|[०-९]+[.)])\s*)+",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex PrayerClauseMarkerRegex = new(
+        @"\((?:[a-z]|ए|बी|सी|डी|ई|एफ|जी|एच|आई|जे|के|एल|एम|एन|ओ|पी|क्यू|आर|एस|टी|यू|वी|डब्ल्यू|एक्स|वाई|जेड)\)(?=\s|$)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     public PdfExportService()
     {
         QuestPDF.Settings.License = LicenseType.Community;
@@ -21,7 +30,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -138,7 +147,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -259,7 +268,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -413,7 +422,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -562,7 +571,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -716,7 +725,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -861,7 +870,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
@@ -991,24 +1000,26 @@ public class PdfExportService : IPdfExportService
     }
 
 
-    public byte[] GenerateCivilPlaintPdf(CivilPlaintDraft d)
+    public byte[] GenerateCivilPlaintPdf(CivilPlaintDraft d, string outputLanguage = "English")
     {
+        var isHindi = string.Equals(outputLanguage, "Hindi", StringComparison.OrdinalIgnoreCase);
         var document = Document.Create(container =>
         {
             container.Page(page =>
             {
                 page.Size(PageSizes.A4);
                 page.Margin(40);
-                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(x => x.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Header().Column(col =>
                 {
-                    col.Item().AlignCenter().Text($"IN THE COURT OF {d.CourtName.ToUpperInvariant()}")
+                    col.Item().AlignCenter().Text(
+                        $"{(isHindi ? "न्यायालय" : "IN THE COURT OF")} {d.CourtName.ToUpperInvariant()}")
                         .Bold().FontSize(13);
                     col.Item().AlignCenter().Text(
                         string.IsNullOrWhiteSpace(d.CaseNumber)
-                            ? "Civil Suit No. _______ of 20__"
-                            : $"Civil Suit No. {d.CaseNumber}").FontSize(11);
+                            ? isHindi ? "दीवानी वाद संख्या _______ सन् 20__" : "Civil Suit No. _______ of 20__"
+                            : $"{(isHindi ? "दीवानी वाद संख्या" : "Civil Suit No.")} {d.CaseNumber}").FontSize(11);
                     col.Item().PaddingTop(8).LineHorizontal(1);
                 });
 
@@ -1016,125 +1027,156 @@ public class PdfExportService : IPdfExportService
                 {
                     col.Spacing(8);
 
-                    col.Item().PaddingTop(6).Text("IN THE MATTER OF:").Bold();
+                    col.Item().PaddingTop(6).Text(isHindi ? "विषय:" : "IN THE MATTER OF:").Bold();
                     col.Item().Text(d.PlaintiffName).Bold();
-                    col.Item().Text("S/o ______________________________");
+                    col.Item().Text(isHindi ? "पुत्र ______________________________" : "S/o ______________________________");
                     if (!string.IsNullOrWhiteSpace(d.PlaintiffAddress))
-                        col.Item().Text($"R/o {d.PlaintiffAddress}");
-                    col.Item().AlignRight().Text("… Plaintiff").Bold();
+                        col.Item().Text($"{(isHindi ? "निवासी" : "R/o")} {d.PlaintiffAddress}");
+                    col.Item().AlignRight().Text(isHindi ? "… वादी" : "… Plaintiff").Bold();
 
-                    col.Item().AlignCenter().PaddingVertical(4).Text("VERSUS").Bold();
+                    col.Item().AlignCenter().PaddingVertical(4).Text(isHindi ? "बनाम" : "VERSUS").Bold();
 
                     col.Item().Text(d.DefendantName).Bold();
                     if (!string.IsNullOrWhiteSpace(d.DefendantAddress))
                         col.Item().Text(d.DefendantAddress);
-                    col.Item().AlignRight().Text("… Defendant").Bold();
+                    col.Item().AlignRight().Text(isHindi ? "… प्रतिवादी" : "… Defendant").Bold();
 
                     var suitTitle = !string.IsNullOrWhiteSpace(d.SuitTitle)
                         ? d.SuitTitle
                         : !string.IsNullOrWhiteSpace(d.PlaintNature)
                             ? d.PlaintNature
-                            : "SUIT FOR ____________________";
+                            : isHindi ? "____________________ हेतु वाद" : "SUIT FOR ____________________";
                     col.Item().PaddingTop(8).AlignCenter().Text(suitTitle.ToUpperInvariant())
                         .Bold().FontSize(13);
                     col.Item().AlignCenter().Text(
-                        $"(Amount: {d.Valuation ?? "Rs. ____________"})").Bold();
+                        $"({(isHindi ? "राशि" : "Amount")}: {d.Valuation ?? "Rs. ____________"})").Bold();
 
                     col.Item().PaddingTop(6).Text(
-                        "The Plaintiff above named most respectfully showeth:—").Bold();
+                        isHindi
+                            ? "उपर्युक्त वादी सादर निवेदन करता है कि:"
+                            : "The Plaintiff above named most respectfully showeth:—").Bold();
 
-                    col.Item().PaddingTop(6).Text("1. PARTIES").Bold();
-                    col.Item().PaddingLeft(10).Text("1.1 The Plaintiff is as described above.");
-                    col.Item().PaddingLeft(10).Text("1.2 The Defendant is as described above.");
+                    col.Item().PaddingTop(6).Text(isHindi ? "1. पक्षकार" : "1. PARTIES").Bold();
+                    col.Item().PaddingLeft(10).Text(isHindi
+                        ? "1.1 वादी का विवरण ऊपर दिया गया है।"
+                        : "1.1 The Plaintiff is as described above.");
+                    col.Item().PaddingLeft(10).Text(isHindi
+                        ? "1.2 प्रतिवादी का विवरण ऊपर दिया गया है।"
+                        : "1.2 The Defendant is as described above.");
 
                     if (d.Facts.Any())
                     {
-                        col.Item().PaddingTop(4).Text("2. FACTS OF THE CASE").Bold();
+                        col.Item().PaddingTop(4).Text(isHindi ? "2. मामले के तथ्य" : "2. FACTS OF THE CASE").Bold();
                         for (int i = 0; i < d.Facts.Count; i++)
-                            col.Item().PaddingLeft(10).Text($"2.{i + 1} {d.Facts[i]}");
+                            col.Item().PaddingLeft(10).Text($"2.{i + 1} {RemoveLeadingParagraphNumber(d.Facts[i])}");
                     }
 
                     if (d.Grounds.Any())
                     {
-                        col.Item().PaddingTop(4).Text("Legal grounds").Bold();
+                        col.Item().PaddingTop(4).Text(isHindi ? "3. विधिक आधार" : "3. LEGAL GROUNDS").Bold();
                         for (int i = 0; i < d.Grounds.Count; i++)
-                            col.Item().PaddingLeft(10).Text($"{d.Facts.Count + i + 1}. {d.Grounds[i]}");
+                            col.Item().PaddingLeft(10).Text($"3.{i + 1} {RemoveLeadingParagraphNumber(d.Grounds[i])}");
                     }
 
                     if (!string.IsNullOrWhiteSpace(d.SuitPropertyDescription) ||
                         !string.IsNullOrWhiteSpace(d.SurveyNumber) ||
                         !string.IsNullOrWhiteSpace(d.Village))
                     {
-                        col.Item().PaddingTop(4).Text("SCHEDULE OF SUIT PROPERTY").Bold();
+                        col.Item().PaddingTop(4).Text(isHindi
+                            ? "वादग्रस्त संपत्ति की अनुसूची"
+                            : "SCHEDULE OF SUIT PROPERTY").Bold();
                         if (!string.IsNullOrWhiteSpace(d.SuitPropertyDescription))
                             col.Item().Text(d.SuitPropertyDescription);
                         var parts = new List<string>();
-                        if (!string.IsNullOrWhiteSpace(d.SurveyNumber)) parts.Add($"Survey No.: {d.SurveyNumber}");
-                        if (!string.IsNullOrWhiteSpace(d.Area)) parts.Add($"Area: {d.Area}");
-                        if (!string.IsNullOrWhiteSpace(d.Village)) parts.Add($"Village: {d.Village}");
-                        if (!string.IsNullOrWhiteSpace(d.Tehsil)) parts.Add($"Tehsil: {d.Tehsil}");
-                        if (!string.IsNullOrWhiteSpace(d.District)) parts.Add($"District: {d.District}");
+                        if (!string.IsNullOrWhiteSpace(d.SurveyNumber))
+                            parts.Add($"{(isHindi ? "सर्वेक्षण संख्या" : "Survey No.")}: {d.SurveyNumber}");
+                        if (!string.IsNullOrWhiteSpace(d.Area))
+                            parts.Add($"{(isHindi ? "क्षेत्रफल" : "Area")}: {d.Area}");
+                        if (!string.IsNullOrWhiteSpace(d.Village))
+                            parts.Add($"{(isHindi ? "गाँव" : "Village")}: {d.Village}");
+                        if (!string.IsNullOrWhiteSpace(d.Tehsil))
+                            parts.Add($"{(isHindi ? "तहसील" : "Tehsil")}: {d.Tehsil}");
+                        if (!string.IsNullOrWhiteSpace(d.District))
+                            parts.Add($"{(isHindi ? "ज़िला" : "District")}: {d.District}");
                         if (parts.Count > 0)
                             col.Item().Text(string.Join(" | ", parts));
                     }
 
-                    col.Item().PaddingTop(6).Text("3. CAUSE OF ACTION").Bold();
-                    col.Item().PaddingLeft(10).Text($"3.1 {d.CauseOfAction ?? "The cause of action arose on ______________________________ and continues, if applicable, as stated in the facts above."}");
+                    col.Item().PaddingTop(6).Text(isHindi ? "4. वाद-हेतुक" : "4. CAUSE OF ACTION").Bold();
+                    col.Item().PaddingLeft(10).Text($"4.1 {d.CauseOfAction ?? (isHindi
+                        ? "वाद-हेतुक ______________________________ को उत्पन्न हुआ और, यदि लागू हो, तो ऊपर वर्णित तथ्यों के अनुसार जारी है।"
+                        : "The cause of action arose on ______________________________ and continues, if applicable, as stated in the facts above.")}");
                     if (!string.IsNullOrWhiteSpace(d.CauseOfActionDate))
-                        col.Item().PaddingLeft(10).Text($"Date(s): {d.CauseOfActionDate}");
+                        col.Item().PaddingLeft(10).Text($"{(isHindi ? "दिनांक" : "Date(s)")}: {d.CauseOfActionDate}");
 
-                    col.Item().PaddingTop(6).Text("4. JURISDICTION").Bold();
-                    col.Item().PaddingLeft(10).Text($"4.1 {d.TerritorialJurisdiction ?? "The territorial jurisdiction facts are: ______________________________."}");
-                    col.Item().PaddingLeft(10).Text($"4.2 The value of the suit for jurisdiction and court fee is {d.Valuation ?? "________________"}.");
+                    col.Item().PaddingTop(6).Text(isHindi ? "5. अधिकारिता" : "5. JURISDICTION").Bold();
+                    col.Item().PaddingLeft(10).Text($"5.1 {d.TerritorialJurisdiction ?? (isHindi
+                        ? "क्षेत्रीय अधिकारिता के तथ्य निम्नलिखित हैं: ______________________________।"
+                        : "The territorial jurisdiction facts are: ______________________________.")}");
+                    col.Item().PaddingLeft(10).Text(isHindi
+                        ? $"5.2 अधिकारिता और न्यायालय शुल्क के लिए वाद का मूल्य {d.Valuation ?? "________________"} है।"
+                        : $"5.2 The value of the suit for jurisdiction and court fee is {d.Valuation ?? "________________"}.");
 
-                    col.Item().PaddingTop(6).Text("5. LIMITATION").Bold();
-                    col.Item().PaddingLeft(10).Text($"5.1 {d.LimitationPleading ?? "Limitation: ______________________________ (to be verified before filing)."}");
+                    col.Item().PaddingTop(6).Text(isHindi ? "6. परिसीमा" : "6. LIMITATION").Bold();
+                    col.Item().PaddingLeft(10).Text($"6.1 {d.LimitationPleading ?? (isHindi
+                        ? "परिसीमा: ______________________________ (दाखिल करने से पहले सत्यापित करें)।"
+                        : "Limitation: ______________________________ (to be verified before filing).")}");
 
-                    col.Item().PaddingTop(6).Text("6. COURT FEE").Bold();
-                    col.Item().PaddingLeft(10).Text($"6.1 {d.CourtFeePleading ?? "Court fee paid / payable: ______________________________ (verify before filing)."}");
+                    col.Item().PaddingTop(6).Text(isHindi ? "7. न्यायालय शुल्क" : "7. COURT FEE").Bold();
+                    col.Item().PaddingLeft(10).Text($"7.1 {d.CourtFeePleading ?? (isHindi
+                        ? "अदा किया गया / देय न्यायालय शुल्क: ______________________________ (दाखिल करने से पहले सत्यापित करें)।"
+                        : "Court fee paid / payable: ______________________________ (verify before filing).")}");
 
-                    col.Item().PaddingTop(8).Text("7. RELIEFS / PRAYER").Bold();
+                    col.Item().PaddingTop(8).Text(isHindi ? "8. राहतें / प्रार्थना" : "8. RELIEFS / PRAYER").Bold();
                     if (d.ReliefsSought.Any())
                     {
                         for (int i = 0; i < d.ReliefsSought.Count; i++)
                             col.Item().PaddingLeft(10).Text($"{(char)('a' + i)}) {d.ReliefsSought[i]}");
                     }
-                    col.Item().Text(string.IsNullOrWhiteSpace(d.Prayer)
-                        ? "It is therefore most respectfully prayed that this Hon'ble Court may be pleased to grant the reliefs sought above, award costs of the suit, and pass any other order(s) as this Hon'ble Court may deem fit and proper in the facts and circumstances of the case."
-                        : d.Prayer);
+                    var prayer = string.IsNullOrWhiteSpace(d.Prayer)
+                        ? isHindi
+                            ? "अतः सादर प्रार्थना है कि यह माननीय न्यायालय उपर्युक्त राहतें प्रदान करने, वाद का खर्च दिलाने तथा मामले के तथ्यों और परिस्थितियों में उचित एवं न्यायसंगत अन्य आदेश पारित करने की कृपा करे।"
+                            : "It is therefore most respectfully prayed that this Hon'ble Court may be pleased to grant the reliefs sought above, award costs of the suit, and pass any other order(s) as this Hon'ble Court may deem fit and proper in the facts and circumstances of the case."
+                        : d.Prayer;
+                    AddPrayerParagraphs(col, prayer);
 
-                    col.Item().PaddingTop(8).Text("And for this act of kindness, the Plaintiff as in duty bound shall ever pray.").Italic();
+                    col.Item().PaddingTop(8).Text(isHindi
+                        ? "अतः इस कृपा के लिए वादी सदैव आपका आभारी रहेगा।"
+                        : "And for this act of kindness, the Plaintiff as in duty bound shall ever pray.").Italic();
 
                     col.Item().PaddingTop(16).Row(row =>
                     {
                         row.RelativeItem().Column(c =>
                         {
-                            c.Item().Text($"Place: {d.Place ?? "__________"}");
-                            c.Item().Text($"Date: {d.Date ?? "__________"}");
+                            c.Item().Text($"{(isHindi ? "स्थान" : "Place")}: {d.Place ?? "__________"}");
+                            c.Item().Text($"{(isHindi ? "दिनांक" : "Date")}: {d.Date ?? "__________"}");
                         });
                         row.RelativeItem().AlignRight().Column(c =>
                         {
-                            c.Item().Text("Plaintiff").Bold();
-                            c.Item().Text("Through");
-                            c.Item().Text("Advocate").Bold();
+                            c.Item().Text(isHindi ? "वादी" : "Plaintiff").Bold();
+                            c.Item().Text(isHindi ? "के माध्यम से" : "Through");
+                            c.Item().Text(isHindi ? "अधिवक्ता" : "Advocate").Bold();
                             c.Item().Text(d.AdvocateName);
                             if (!string.IsNullOrWhiteSpace(d.AdvocateEnrollmentNo))
-                                c.Item().Text($"Enrollment No.: {d.AdvocateEnrollmentNo}");
+                                c.Item().Text($"{(isHindi ? "नामांकन संख्या" : "Enrollment No.")}: {d.AdvocateEnrollmentNo}");
                         });
                     });
 
-                    col.Item().PaddingTop(16).Text("VERIFICATION").Bold();
-                    col.Item().Text(
-                        $"I, {d.PlaintiffName}, the Plaintiff above named, do hereby verify that the contents of paragraphs ______ to ______ are true to my personal knowledge and those of paragraphs ______ to ______ are based on information received and believed to be true. No part of it is false and nothing material has been concealed therefrom.");
-                    col.Item().PaddingTop(6).Text("Verified at __________ on this ___ day of __________, 20__.");
-                    col.Item().PaddingTop(16).AlignRight().Text($"Plaintiff\n{d.PlaintiffName}");
+                    col.Item().PaddingTop(16).Text(isHindi ? "सत्यापन" : "VERIFICATION").Bold();
+                    col.Item().Text(isHindi
+                        ? $"मैं, {d.PlaintiffName}, उपर्युक्त वादी, एतद्द्वारा सत्यापित करता/करती हूँ कि अनुच्छेद ______ से ______ तक की विषयवस्तु मेरे व्यक्तिगत ज्ञान पर आधारित सत्य है तथा अनुच्छेद ______ से ______ तक की विषयवस्तु प्राप्त जानकारी और उसे सत्य मानने के आधार पर सत्य है। इसमें कोई भी बात असत्य नहीं है और कोई महत्वपूर्ण तथ्य छिपाया नहीं गया है।"
+                        : $"I, {d.PlaintiffName}, the Plaintiff above named, do hereby verify that the contents of paragraphs ______ to ______ are true to my personal knowledge and those of paragraphs ______ to ______ are based on information received and believed to be true. No part of it is false and nothing material has been concealed therefrom.");
+                    col.Item().PaddingTop(6).Text(isHindi
+                        ? "आज दिनांक ___ __________, 20__ को __________ में सत्यापित।"
+                        : "Verified at __________ on this ___ day of __________, 20__.");
+                    col.Item().PaddingTop(16).AlignRight().Text($"{(isHindi ? "वादी" : "Plaintiff")}\n{d.PlaintiffName}");
                 });
 
                 page.Footer().AlignCenter().Text(x =>
                 {
-                    x.Span("Page ");
+                    x.Span(isHindi ? "पृष्ठ " : "Page ");
                     x.CurrentPageNumber();
-                    x.Span(" of ");
+                    x.Span(isHindi ? " में से " : " of ");
                     x.TotalPages();
                 });
             });
@@ -1143,7 +1185,7 @@ public class PdfExportService : IPdfExportService
         return document.GeneratePdf();
     }
 
-    public byte[] GenerateFromJson(string documentType, string json)
+    public byte[] GenerateFromJson(string documentType, string json, string outputLanguage = "English")
     {
         var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
@@ -1195,7 +1237,7 @@ public class PdfExportService : IPdfExportService
             {
                 var draft = JsonSerializer.Deserialize<CivilPlaintDraft>(json, options)
                             ?? throw new InvalidOperationException("Invalid CivilPlaint JSON");
-                return GenerateCivilPlaintPdf(draft);
+                return GenerateCivilPlaintPdf(draft, outputLanguage);
             }
             case "CivilStageAApplication":
             {
@@ -1237,7 +1279,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(48);
-                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
                 page.Content()
                     .PaddingVertical(12)
                     .Text(affidavitText)
@@ -1268,7 +1310,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(48);
-                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
                 page.Content().Column(column =>
                 {
                     column.Spacing(10);
@@ -1365,7 +1407,7 @@ public class PdfExportService : IPdfExportService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(48);
-                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato"));
+                page.DefaultTextStyle(style => style.FontSize(11).FontFamily("Lato", "Noto Sans Devanagari"));
 
                 page.Content().Column(column =>
                 {
@@ -1490,5 +1532,32 @@ public class PdfExportService : IPdfExportService
         column.Item().PaddingTop(8).Text(title).Bold();
         for (var index = 0; index < paragraphs.Count; index++)
             column.Item().PaddingLeft(12).Text($"{index + 1}. {paragraphs[index]}");
+    }
+
+    private static string RemoveLeadingParagraphNumber(string paragraph) =>
+        NumberedParagraphPrefixRegex.Replace(paragraph, string.Empty);
+
+    private static void AddPrayerParagraphs(ColumnDescriptor column, string prayer)
+    {
+        var markers = PrayerClauseMarkerRegex.Matches(prayer);
+        if (markers.Count == 0)
+        {
+            column.Item().Text(prayer);
+            return;
+        }
+
+        var firstMarker = markers[0];
+        var introduction = prayer[..firstMarker.Index].Trim();
+        if (introduction.Length > 0)
+            column.Item().Text(introduction);
+
+        for (var index = 0; index < markers.Count; index++)
+        {
+            var marker = markers[index];
+            var end = index + 1 < markers.Count ? markers[index + 1].Index : prayer.Length;
+            var clause = prayer[marker.Index..end].Trim();
+            if (clause.Length > 0)
+                column.Item().PaddingLeft(10).Text(clause);
+        }
     }
 }

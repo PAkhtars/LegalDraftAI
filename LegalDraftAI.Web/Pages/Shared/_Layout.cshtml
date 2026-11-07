@@ -23,7 +23,127 @@
                 <details class="nav-dropdown">
                     <summary>Civil Cases</summary>
                     <div class="nav-dropdown-menu">
-                        <a asp-page="/CivilPlaint">Civil Plaint</a>
+                        <details class="nav-submenu">
+                            <summary>Civil Plaint</summary>
+                            <div class="nav-submenu-menu">
+                                <a asp-page="/CivilPlaint" asp-fragment="civil-plaint-form">Open Civil Plaint form</a>
+                                <details class="nav-submenu">
+                                    <summary>1. Civil / Commercial Suits (Property &amp; Contractual Matters)</summary>
+                                    <div class="nav-submenu-menu">
+                                        <details class="nav-submenu">
+                                            <summary>1.1 Real Estate &amp; Immovable Property</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="DeclarationOfTitle" asp-fragment="civil-plaint-form">1. Suit for Declaration of Title / Ownership (Sec 34, Specific Relief Act)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="PossessionEvictionMesneProfits" asp-fragment="civil-plaint-form">2. Suit for Possession / Eviction &amp; Mesne Profits</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="Partition" asp-fragment="civil-plaint-form">3. Suit for Partition &amp; Separate Possession of Ancestral / Joint Property</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="PermanentInjunction" asp-fragment="civil-plaint-form">4. Suit for Injunction (Permanent / Mandatory / Temporary)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="EasementaryRights" asp-fragment="civil-plaint-form">5. Suit for Easementary Rights (Right of Way, Light, Air)</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>1.2 Contractual &amp; Money Matters</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="RecoveryOfMoney" asp-fragment="civil-plaint-form">1. Suit for Recovery of Money / Debt</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="SummarySuitOrder37" asp-fragment="civil-plaint-form">2. Summary Suit under Order 37 CPC (Negotiable instruments, written contracts)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="SpecificPerformance" asp-fragment="civil-plaint-form">3. Suit for Specific Performance of Contract</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="CancellationRescissionInstruments" asp-fragment="civil-plaint-form">4. Cancellation / Rescission of Instruments / Sale Deeds</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>1.3 Commercial &amp; Financial Matters</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="CommercialCourtsActDisputes" asp-fragment="civil-plaint-form">Commercial Disputes under the Commercial Courts Act</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="PartnershipDissolutionAccounts" asp-fragment="civil-plaint-form">Partnership Disputes &amp; Dissolution of Firm / Accounts</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="IntellectualPropertyInfringement" asp-fragment="civil-plaint-form">Intellectual Property Infringement (Trademark, Copyright, Patent Suits)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="BankingMortgageForeclosureRedemption" asp-fragment="civil-plaint-form">Banking &amp; Mortgage Suits (Foreclosure / Redemption)</a>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </details>
+                                <details class="nav-submenu">
+                                    <summary>2. Matrimonial &amp; Family Suits (Family Court / Civil Jurisdiction)</summary>
+                                    <div class="nav-submenu-menu">
+                                        <details class="nav-submenu">
+                                            <summary>2.1 Marital Status &amp; Reliefs</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="DissolutionOfMarriage" asp-fragment="civil-plaint-form">Petition for Dissolution of Marriage (Divorce)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="JudicialSeparation" asp-fragment="civil-plaint-form">Petition for Judicial Separation</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="RestitutionOfConjugalRights" asp-fragment="civil-plaint-form">Petition for Restitution of Conjugal Rights</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="NullityOfMarriage" asp-fragment="civil-plaint-form">Suit / Petition for Declaration of Nullity of Marriage (Void / Voidable)</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>2.2 Maintenance &amp; Financial Support</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="SpousalMaintenanceAlimony" asp-fragment="civil-plaint-form">Claim for Spousal Maintenance / Alimony</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="InterimMaintenanceExpenses" asp-fragment="civil-plaint-form">Application for Interim Maintenance &amp; Litigation Expenses</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="ChildMaintenance" asp-fragment="civil-plaint-form">Claim for Child Maintenance</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>2.3 Custody &amp; Guardianship</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="ChildCustodyVisitation" asp-fragment="civil-plaint-form">Petition for Child Custody &amp; Visitation Rights</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="GuardianshipApplication" asp-fragment="civil-plaint-form">Guardianship Application under the Guardians and Wards Act</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>2.4 Property &amp; Family Claims</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="ReturnOfStridhanBelongings" asp-fragment="civil-plaint-form">Claim for Return of Stridhan / Personal Belongings</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="FamilySettlementMatrimonialPartition" asp-fragment="civil-plaint-form">Family Settlement &amp; Partition of Matrimonial Assets</a>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </details>
+                                <details class="nav-submenu">
+                                    <summary>3. Torts &amp; Civil Wrongs (Compensation &amp; Damages)</summary>
+                                    <div class="nav-submenu-menu">
+                                        <details class="nav-submenu">
+                                            <summary>3.1 Reputation &amp; Personal Rights</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="DefamationDamages" asp-fragment="civil-plaint-form">Suit for Damages for Defamation (Libel / Slander)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="MaliciousProsecutionDamages" asp-fragment="civil-plaint-form">Suit for Damages for Malicious Prosecution</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="BreachOfPrivacy" asp-fragment="civil-plaint-form">Action for Breach of Privacy</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>3.2 Negligence &amp; Bodily Injury</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="MedicalNegligence" asp-fragment="civil-plaint-form">Action for Medical Negligence / Professional Malpractice</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="MotorAccidentCompensation" asp-fragment="civil-plaint-form">Motor Accident Claims (Torts / Compensation)</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="OccupierWorkplaceLiability" asp-fragment="civil-plaint-form">Occupier's Liability &amp; Workplace Hazards</a>
+                                            </div>
+                                        </details>
+                                        <details class="nav-submenu">
+                                            <summary>3.3 Nuisance &amp; Trespass</summary>
+                                            <div class="nav-submenu-menu">
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="PrivatePublicNuisance" asp-fragment="civil-plaint-form">Suit for Private / Public Nuisance</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="TrespassToLand" asp-fragment="civil-plaint-form">Suit for Trespass to Land / Property</a>
+                                                <a asp-page="/CivilPlaint" asp-route-plaintNature="TrespassConversionOfGoods" asp-fragment="civil-plaint-form">Suit for Trespass to Goods / Conversion of Goods</a>
+                                            </div>
+                                        </details>
+                                    </div>
+                                </details>
+                                <details class="nav-submenu">
+                                    <summary>4. Testamentary &amp; Probate Suits</summary>
+                                    <div class="nav-submenu-menu">
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="GrantOfProbate" asp-fragment="civil-plaint-form">Application for Grant of Probate of Will</a>
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="LettersOfAdministration" asp-fragment="civil-plaint-form">Petition for Letters of Administration</a>
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="SuccessionCertificate" asp-fragment="civil-plaint-form">Application for Succession Certificate</a>
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="ProbateWillChallengeRevocation" asp-fragment="civil-plaint-form">Challenge / Revocation of Probate or Will</a>
+                                    </div>
+                                </details>
+                                <details class="nav-submenu">
+                                    <summary>5. Miscellaneous &amp; Constitutional Civil Suits</summary>
+                                    <div class="nav-submenu-menu">
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="SuitAgainstGovernmentPublicOfficer" asp-fragment="civil-plaint-form">Suit against Public Officers / Government (Sec 80 CPC Notice-backed suits)</a>
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="RepresentativeSuitPIL" asp-fragment="civil-plaint-form">Representative Suit / Public Interest Litigation (Order 1 Rule 8 CPC)</a>
+                                        <a asp-page="/CivilPlaint" asp-route-plaintNature="WritCivilRevisionReview" asp-fragment="civil-plaint-form">Writs / Civil Revision / Review Petitions</a>
+                                    </div>
+                                </details>
+                            </div>
+                        </details>
                         <a asp-page="/CivilApplications">Stage A</a>
                         <a asp-page="/CivilSummonsService">Stage B</a>
                         <a asp-page="/CivilDefaultProcedure">Stage C</a>

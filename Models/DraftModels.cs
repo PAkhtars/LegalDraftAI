@@ -3,7 +3,9 @@ namespace LegalDraftAI.Models;
 public class DraftRequest
 {
     public string DocumentType { get; set; } = string.Empty; // BailApplication, AdvocateBill, AbsenceApplication
+    public string AiProvider { get; set; } = "Groq";
     public string Jurisdiction { get; set; } = "Delhi";
+    public string OutputLanguage { get; set; } = "English";
     public string ExtractedClientFacts { get; set; } = string.Empty;
     public Dictionary<string, string>? ExtraFields { get; set; }
     public Guid? CaseId { get; set; }
@@ -24,6 +26,7 @@ public class ExportRequest
 {
     public string DocumentType { get; set; } = string.Empty;
     public string Json { get; set; } = string.Empty;
+    public string OutputLanguage { get; set; } = "English";
 }
 
 public sealed class AffidavitPdfRequest
@@ -42,6 +45,12 @@ public sealed class CivilPlaintDocxExportRequest
 
     /// <summary>Generated plaint field values used to replace matching DOCX placeholders, including document1 through document4.</summary>
     public Dictionary<string, string> TemplateValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class CivilPlaintTextRefinementRequest
+{
+    public string Field { get; set; } = string.Empty;
+    public string Text { get; set; } = string.Empty;
 }
 
 /// <summary>OCR text extracted from one uploaded image.</summary>
@@ -109,6 +118,7 @@ public sealed class CivilStageAProposedNoticeDraft
 public sealed class HindiTranslationRequest
 {
     public string Text { get; set; } = string.Empty;
+    public Dictionary<string, string>? Fields { get; set; }
 }
 
 public class BailApplicationDraft

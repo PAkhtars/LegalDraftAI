@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -16,6 +17,11 @@ public sealed class CivilPlaintModel(
     private const string UploadedDocumentsSessionKey = "CivilPlaint.UploadedDocuments";
     private const string UploadedNatureSessionKey = "CivilPlaint.UploadedNature";
     private const string CaseIdSessionKey = "CivilPlaint.CaseId";
+    private const string HindiCaseFieldTranslationsSessionKey = "CivilPlaint.HindiCaseFieldTranslations";
+
+    private static readonly Regex NumberedParagraphPrefixRegex = new(
+        @"^(?:\s*(?:\d+(?:\.\d+)+|[०-९]+(?:\.[०-९]+)+|\d+[.)]|[०-९]+[.)])\s*)+",
+        RegexOptions.CultureInvariant);
 
     private static readonly JsonSerializerOptions PrettyJsonOptions = new()
     {
@@ -44,6 +50,12 @@ public sealed class CivilPlaintModel(
     public Guid? SelectedCaseId { get; set; }
 
     [BindProperty]
+    public string SelectedLanguage { get; set; } = "en";
+
+    [BindProperty]
+    public string SelectedAiProvider { get; set; } = "Groq";
+
+    [BindProperty]
     public List<Guid> ExcludedDocumentIds { get; set; } = [];
 
     [BindProperty]
@@ -56,8 +68,14 @@ public sealed class CivilPlaintModel(
     [BindProperty]
     public Guid? SelectedDraftFormatMasterId { get; set; }
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task OnGetAsync(string? plaintNature, CancellationToken cancellationToken)
     {
+        SelectedLanguage = string.Equals(
+            Request.Cookies["civil-plaint-language"],
+            "hi",
+            StringComparison.OrdinalIgnoreCase)
+            ? "hi"
+            : "en";
         await LoadPlaintNaturesAsync(cancellationToken);
         await LoadExistingCasesAsync(cancellationToken);
         var caseId = await GetCurrentCaseIdAsync();
@@ -65,10 +83,20 @@ public sealed class CivilPlaintModel(
             await LoadSelectedCaseAsync(selectedCaseId, populateInput: true, cancellationToken))
         {
             SelectedCaseId = selectedCaseId;
+            if (SelectedLanguage == "hi")
+                await TranslateSelectedCaseFieldsAsync(cancellationToken);
         }
         else
         {
             await LoadUploadedDocumentsAsync();
+        }
+
+        if (!string.IsNullOrWhiteSpace(plaintNature) &&
+            PlaintNatures.FirstOrDefault(nature => nature.Code.Equals(
+                plaintNature,
+                StringComparison.OrdinalIgnoreCase)) is { } selectedNature)
+        {
+            Input.PlaintNature = selectedNature.Code;
         }
     }
 
@@ -104,14 +132,33 @@ public sealed class CivilPlaintModel(
             return Page();
         }
 
+        SelectedLanguage = string.Equals(SelectedLanguage, "hi", StringComparison.OrdinalIgnoreCase)
+            ? "hi"
+            : "en";
+        if (!string.Equals(SelectedAiProvider, "Groq", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(SelectedAiProvider, "Gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            ApiErrorMessage = "Select Groq or Google Gemini for draft generation.";
+            return Page();
+        }
+
+        SelectedAiProvider = string.Equals(SelectedAiProvider, "Gemini", StringComparison.OrdinalIgnoreCase)
+            ? "Gemini"
+            : "Groq";
+        var translatedCaseFields = SelectedLanguage == "hi"
+            ? await LoadHindiCaseFieldTranslationsAsync(cancellationToken)
+            : null;
+
         var request = new
         {
             documentType = "CivilPlaint",
+            aiProvider = SelectedAiProvider,
             jurisdiction = Input.Jurisdiction,
+            outputLanguage = SelectedLanguage == "hi" ? "Hindi" : "English",
             extractedClientFacts = BuildClientFacts(ExcludedDocumentIds.ToHashSet()),
             caseId = await GetCurrentCaseIdAsync(),
             civilPlaintDetails = Input.SaveDetailsToDatabase
-                ? BuildSavedPlaintDetails(Input)
+                ? BuildSavedPlaintDetails(Input, translatedCaseFields)
                 : null
         };
 
@@ -141,8 +188,20 @@ public sealed class CivilPlaintModel(
                     return Page();
                 }
 
+                var generatedPreview = BuildCivilPlaintPreview(draft);
+                if (SelectedLanguage == "hi")
+                {
+                    var translatedPreview = await TranslateGeneratedDraftToHindiAsync(
+                        generatedPreview,
+                        cancellationToken);
+                    if (translatedPreview is null)
+                        return Page();
+
+                    generatedPreview = translatedPreview;
+                }
+
                 Input.GeneratedDraftJson = JsonSerializer.Serialize(draft, PrettyJsonOptions);
-                GeneratedDraftPreviewText = BuildCivilPlaintPreview(draft);
+                GeneratedDraftPreviewText = generatedPreview;
                 GeneratedDraftFields = GetDraftFieldOptions(draft);
                 await LoadCivilDraftFormatMastersAsync(cancellationToken);
                 ModelState.Remove("Input.GeneratedDraftJson");
@@ -167,6 +226,339 @@ public sealed class CivilPlaintModel(
         }
 
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostRefineTextAsync(
+        [FromBody] RefineCivilPlaintTextViewModel? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+            return new BadRequestObjectResult(new { error = "A refinement request is required." });
+
+        var supportedFields = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "facts",
+            "propertyDescription",
+            "grounds",
+            "reliefsSought",
+            "prayer"
+        };
+        if (string.IsNullOrWhiteSpace(request.Field) ||
+            !supportedFields.Contains(request.Field))
+            return new BadRequestObjectResult(new { error = "Select a supported field to refine." });
+        if (string.IsNullOrWhiteSpace(request.Text))
+            return new BadRequestObjectResult(new { error = "Enter text before requesting AI refinement." });
+        if (request.Text.Length > 20000)
+            return new BadRequestObjectResult(new { error = "Field text must be 20,000 characters or fewer." });
+
+        try
+        {
+            using var response = await _apiClient.PostAsJsonAsync(
+                "api/drafts/refine-civil-plaint-text",
+                request,
+                cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = GetApiErrorMessage(
+                    responseBody,
+                    $"AI refinement failed (HTTP {(int)response.StatusCode}).");
+                return new ObjectResult(new { error })
+                {
+                    StatusCode = (int)response.StatusCode
+                };
+            }
+
+            using var document = JsonDocument.Parse(responseBody);
+            if (!document.RootElement.TryGetProperty("refinedText", out var refinedTextElement) ||
+                refinedTextElement.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(refinedTextElement.GetString()))
+            {
+                logger.LogError("Civil plaint refinement API returned no refined text.");
+                return new ObjectResult(new { error = "The AI response did not contain refined text." })
+                {
+                    StatusCode = StatusCodes.Status502BadGateway
+                };
+            }
+
+            return new JsonResult(new { refinedText = refinedTextElement.GetString() });
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogError(exception, "Could not reach the LegalDraftAI API for civil plaint text refinement.");
+            return new ObjectResult(new { error = "Could not reach the AI service. Try again." })
+            {
+                StatusCode = StatusCodes.Status502BadGateway
+            };
+        }
+        catch (JsonException exception)
+        {
+            logger.LogError(exception, "Civil plaint refinement API returned invalid JSON.");
+            return new ObjectResult(new { error = "The AI service returned an invalid response. Try again." })
+            {
+                StatusCode = StatusCodes.Status502BadGateway
+            };
+        }
+    }
+
+    private async Task<string?> TranslateGeneratedDraftToHindiAsync(
+        string text,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await _apiClient.PostAsJsonAsync(
+                "api/translation/to-hindi",
+                new HindiTranslationRequestViewModel { Text = text },
+                cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                ApiErrorMessage = GetApiErrorMessage(
+                    responseBody,
+                    $"Civil plaint Hindi translation failed (HTTP {(int)response.StatusCode}).");
+                return null;
+            }
+
+            using var result = JsonDocument.Parse(responseBody);
+            if (!result.RootElement.TryGetProperty("translatedText", out var translatedText) ||
+                translatedText.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(translatedText.GetString()))
+            {
+                logger.LogError("Civil plaint translation API response did not contain translated text.");
+                ApiErrorMessage = "The API returned an empty Hindi translation for the civil plaint.";
+                return null;
+            }
+
+            return NormalizeHindiCivilPlaintPreview(translatedText.GetString()!);
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogError(exception, "Could not reach the translation API for the generated civil plaint.");
+            ApiErrorMessage = "Could not reach the API to translate the generated civil plaint into Hindi.";
+            return null;
+        }
+        catch (JsonException exception)
+        {
+            logger.LogError(exception, "Civil plaint translation API returned invalid JSON.");
+            ApiErrorMessage = "The API returned invalid Hindi translation data for the civil plaint.";
+            return null;
+        }
+    }
+
+    private static string NormalizeHindiCivilPlaintPreview(string text)
+    {
+        var standardPhrases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["IN THE COURT OF"] = "न्यायालय",
+            ["CIVIL JUDGE (SENIOR DIVISION)"] = "सिविल न्यायाधीश (वरिष्ठ खंड)",
+            ["CIVIL JUDGE (JUNIOR DIVISION)"] = "सिविल न्यायाधीश (कनिष्ठ खंड)",
+            ["Civil Suit No."] = "दीवानी वाद संख्या",
+            ["IN THE MATTER OF:"] = "विषय:",
+            ["R/o"] = "निवासी",
+            ["… Plaintiff"] = "… वादी",
+            ["... Plaintiff"] = "... वादी",
+            ["VERSUS"] = "बनाम",
+            ["… Defendant"] = "… प्रतिवादी",
+            ["... Defendant"] = "... प्रतिवादी",
+            ["SUIT FOR DECLARATION OF TITLE AND POSSESSION"] = "स्वत्व एवं कब्ज़े की घोषणा हेतु वाद",
+            ["SUIT FOR DECLARATION OF TITLE"] = "स्वत्व की घोषणा हेतु वाद",
+            ["SUIT FOR RECOVERY OF MONEY"] = "धन-वसूली हेतु वाद",
+            ["SUIT FOR PERMANENT INJUNCTION"] = "स्थायी निषेधाज्ञा हेतु वाद",
+            ["SUIT FOR PARTITION"] = "विभाजन हेतु वाद",
+            ["The Plaintiff above named most respectfully showeth:"] = "उपर्युक्त वादी सादर निवेदन करता है:",
+            ["1. PARTIES"] = "1. पक्षकार",
+            ["1.1 The Plaintiff is as described above."] = "1.1 वादी का विवरण ऊपर दिया गया है।",
+            ["1.2 The Defendant is as described above."] = "1.2 प्रतिवादी का विवरण ऊपर दिया गया है।",
+            ["2. FACTS OF THE CASE"] = "2. मामले के तथ्य",
+            ["3. LEGAL GROUNDS"] = "3. विधिक आधार",
+            ["SCHEDULE OF SUIT PROPERTY"] = "वादग्रस्त संपत्ति की अनुसूची",
+            ["Survey / Plot No.:"] = "सर्वेक्षण / भूखंड संख्या:",
+            ["Survey / Plot No."] = "सर्वेक्षण / भूखंड संख्या",
+            ["Survey No.:"] = "सर्वेक्षण संख्या:",
+            ["Area:"] = "क्षेत्रफल:",
+            ["Village:"] = "गाँव:",
+            ["Tehsil:"] = "तहसील:",
+            ["District:"] = "ज़िला:",
+            ["4. CAUSE OF ACTION"] = "4. वाद-हेतुक",
+            ["The cause of action arose as stated in the facts above."] = "वाद-हेतुक उपर्युक्त तथ्यों में वर्णित घटनाओं से उत्पन्न हुआ।",
+            ["5. JURISDICTION"] = "5. अधिकारिता",
+            ["6. LIMITATION"] = "6. परिसीमा",
+            ["7. COURT FEE"] = "7. न्यायालय शुल्क",
+            ["8. RELIEFS SOUGHT"] = "8. माँगी गई राहतें",
+            ["PRAYER"] = "प्रार्थना",
+            ["And for this act of kindness, the Plaintiff as in duty bound shall ever pray."] =
+                "अतः न्यायहित में वादी सदैव प्रार्थी रहेगा।",
+            ["Place:"] = "स्थान:",
+            ["Date:"] = "तारीख:",
+            ["Plaintiff"] = "वादी",
+            ["Through Advocate"] = "अधिवक्ता के माध्यम से",
+            ["Through"] = "के माध्यम से",
+            ["Advocate"] = "अधिवक्ता",
+            ["Enrollment No.:"] = "नामांकन संख्या:",
+            ["VERIFICATION"] = "सत्यापन",
+            ["Verified at the place and on the date stated above."] =
+                "ऊपर उल्लिखित स्थान और तारीख पर सत्यापित किया गया।"
+        };
+
+        foreach (var phrase in standardPhrases.OrderByDescending(item => item.Key.Length))
+            text = text.Replace(phrase.Key, phrase.Value, StringComparison.OrdinalIgnoreCase);
+
+        return text;
+    }
+
+    private async Task<bool> TranslateSelectedCaseFieldsAsync(CancellationToken cancellationToken)
+    {
+        var fields = GetHindiTranslatableCaseFields();
+        if (fields.Count == 0)
+            return true;
+
+        try
+        {
+            using var response = await _apiClient.PostAsJsonAsync(
+                "api/translation/to-hindi",
+                new HindiTranslationRequestViewModel { Fields = fields },
+                cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                ApiErrorMessage = GetApiErrorMessage(
+                    responseBody,
+                    $"Case field Hindi translation failed (HTTP {(int)response.StatusCode}).");
+                return false;
+            }
+
+            using var result = JsonDocument.Parse(responseBody);
+            if (!result.RootElement.TryGetProperty("translatedFields", out var translatedFieldsElement) ||
+                translatedFieldsElement.ValueKind != JsonValueKind.Object)
+            {
+                logger.LogError("Case field translation API response did not contain translated fields.");
+                ApiErrorMessage = "The API returned invalid Hindi translations for the selected case.";
+                return false;
+            }
+
+            var translatedFields = translatedFieldsElement
+                .EnumerateObject()
+                .Where(property => property.Value.ValueKind == JsonValueKind.String)
+                .ToDictionary(
+                    property => property.Name,
+                    property => property.Value.GetString()!,
+                    StringComparer.OrdinalIgnoreCase);
+            if (fields.Keys.Any(field => !translatedFields.ContainsKey(field)))
+            {
+                logger.LogError("Case field translation API response omitted one or more requested fields.");
+                ApiErrorMessage = "The API returned incomplete Hindi translations for the selected case.";
+                return false;
+            }
+
+            var originals = fields.ToDictionary(
+                field => field.Key,
+                field => new HindiCaseFieldTranslation(
+                    field.Value,
+                    translatedFields[field.Key]),
+                StringComparer.OrdinalIgnoreCase);
+            ApplyHindiCaseFieldTranslations(translatedFields);
+            ModelState.Clear();
+
+            await HttpContext.Session.LoadAsync(cancellationToken);
+            HttpContext.Session.SetString(
+                HindiCaseFieldTranslationsSessionKey,
+                JsonSerializer.Serialize(originals));
+            await HttpContext.Session.CommitAsync(cancellationToken);
+            return true;
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogError(exception, "Could not reach the translation API for selected case fields.");
+            ApiErrorMessage = "Could not reach the API to translate the selected case fields into Hindi.";
+            return false;
+        }
+        catch (JsonException exception)
+        {
+            logger.LogError(exception, "Case field translation API returned invalid JSON.");
+            ApiErrorMessage = "The API returned invalid Hindi translation data for the selected case.";
+            return false;
+        }
+    }
+
+    private Dictionary<string, string> GetHindiTranslatableCaseFields()
+    {
+        var fields = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [nameof(Input.Jurisdiction)] = Input.Jurisdiction,
+            [nameof(Input.Facts)] = Input.Facts ?? string.Empty,
+            [nameof(Input.CourtName)] = Input.CourtName,
+            [nameof(Input.CaseTitle)] = Input.CaseTitle,
+            [nameof(Input.SurveyNumber)] = Input.SurveyNumber ?? string.Empty,
+            [nameof(Input.PlaintiffName)] = Input.PlaintiffName,
+            [nameof(Input.PlaintiffAddress)] = Input.PlaintiffAddress,
+            [nameof(Input.DefendantName)] = Input.DefendantName,
+            [nameof(Input.DefendantAddress)] = Input.DefendantAddress,
+            [nameof(Input.SuitPropertyDescription)] = Input.SuitPropertyDescription ?? string.Empty,
+            [nameof(Input.Area)] = Input.Area ?? string.Empty,
+            [nameof(Input.Village)] = Input.Village ?? string.Empty,
+            [nameof(Input.Tehsil)] = Input.Tehsil ?? string.Empty,
+            [nameof(Input.District)] = Input.District ?? string.Empty,
+            [nameof(Input.Valuation)] = Input.Valuation ?? string.Empty,
+            [nameof(Input.Grounds)] = Input.Grounds ?? string.Empty,
+            [nameof(Input.ReliefsSought)] = Input.ReliefsSought ?? string.Empty,
+            [nameof(Input.Prayer)] = Input.Prayer ?? string.Empty,
+            [nameof(Input.Place)] = Input.Place ?? string.Empty,
+            [nameof(Input.AdvocateName)] = Input.AdvocateName ?? string.Empty
+        };
+
+        return fields
+            .Where(field => !string.IsNullOrWhiteSpace(field.Value))
+            .ToDictionary(field => field.Key, field => field.Value, StringComparer.Ordinal);
+    }
+
+    private void ApplyHindiCaseFieldTranslations(IReadOnlyDictionary<string, string> translations)
+    {
+        Input.Jurisdiction = GetTranslation(nameof(Input.Jurisdiction), Input.Jurisdiction);
+        Input.Facts = GetTranslation(nameof(Input.Facts), Input.Facts);
+        Input.CourtName = GetTranslation(nameof(Input.CourtName), Input.CourtName);
+        Input.CaseTitle = GetTranslation(nameof(Input.CaseTitle), Input.CaseTitle);
+        Input.SurveyNumber = GetTranslation(nameof(Input.SurveyNumber), Input.SurveyNumber);
+        Input.PlaintiffName = GetTranslation(nameof(Input.PlaintiffName), Input.PlaintiffName);
+        Input.PlaintiffAddress = GetTranslation(nameof(Input.PlaintiffAddress), Input.PlaintiffAddress);
+        Input.DefendantName = GetTranslation(nameof(Input.DefendantName), Input.DefendantName);
+        Input.DefendantAddress = GetTranslation(nameof(Input.DefendantAddress), Input.DefendantAddress);
+        Input.SuitPropertyDescription = GetTranslation(
+            nameof(Input.SuitPropertyDescription),
+            Input.SuitPropertyDescription);
+        Input.Area = GetTranslation(nameof(Input.Area), Input.Area);
+        Input.Village = GetTranslation(nameof(Input.Village), Input.Village);
+        Input.Tehsil = GetTranslation(nameof(Input.Tehsil), Input.Tehsil);
+        Input.District = GetTranslation(nameof(Input.District), Input.District);
+        Input.Valuation = GetTranslation(nameof(Input.Valuation), Input.Valuation);
+        Input.Grounds = GetTranslation(nameof(Input.Grounds), Input.Grounds);
+        Input.ReliefsSought = GetTranslation(nameof(Input.ReliefsSought), Input.ReliefsSought);
+        Input.Prayer = GetTranslation(nameof(Input.Prayer), Input.Prayer);
+        Input.Place = GetTranslation(nameof(Input.Place), Input.Place);
+        Input.AdvocateName = GetTranslation(nameof(Input.AdvocateName), Input.AdvocateName);
+
+        string GetTranslation(string field, string? original) =>
+            translations.TryGetValue(field, out var translated) ? translated : original ?? string.Empty;
+    }
+
+    private async Task<IReadOnlyDictionary<string, HindiCaseFieldTranslation>?>
+        LoadHindiCaseFieldTranslationsAsync(CancellationToken cancellationToken)
+    {
+        await HttpContext.Session.LoadAsync(cancellationToken);
+        var json = HttpContext.Session.GetString(HindiCaseFieldTranslationsSessionKey);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, HindiCaseFieldTranslation>>(json);
+        }
+        catch (JsonException exception)
+        {
+            logger.LogError(exception, "Stored Hindi case field translations were invalid.");
+            HttpContext.Session.Remove(HindiCaseFieldTranslationsSessionKey);
+            return null;
+        }
     }
 
     public async Task<IActionResult> OnPostResearchAsync(CancellationToken cancellationToken)
@@ -195,6 +587,7 @@ public sealed class CivilPlaintModel(
             HttpContext.Session.Remove(CaseIdSessionKey);
             HttpContext.Session.Remove(UploadedDocumentsSessionKey);
             HttpContext.Session.Remove(UploadedNatureSessionKey);
+            HttpContext.Session.Remove(HindiCaseFieldTranslationsSessionKey);
             await HttpContext.Session.CommitAsync(cancellationToken);
             Input = new CivilPlaintInput();
             UploadedDocuments = [];
@@ -206,6 +599,21 @@ public sealed class CivilPlaintModel(
 
         if (!await LoadSelectedCaseAsync(caseId, populateInput: true, cancellationToken))
             return Page();
+
+        SelectedLanguage = string.Equals(SelectedLanguage, "hi", StringComparison.OrdinalIgnoreCase)
+            ? "hi"
+            : "en";
+        if (SelectedLanguage == "hi")
+        {
+            if (!await TranslateSelectedCaseFieldsAsync(cancellationToken))
+                return Page();
+        }
+        else
+        {
+            await HttpContext.Session.LoadAsync(cancellationToken);
+            HttpContext.Session.Remove(HindiCaseFieldTranslationsSessionKey);
+            await HttpContext.Session.CommitAsync(cancellationToken);
+        }
 
         await SaveUploadedDocumentsAsync(caseId);
         await RunResearchAsync(cancellationToken);
@@ -465,7 +873,13 @@ public sealed class CivilPlaintModel(
                 new
                 {
                     documentType = "CivilPlaint",
-                    json = Input.GeneratedDraftJson
+                    json = Input.GeneratedDraftJson,
+                    outputLanguage = string.Equals(
+                        SelectedLanguage,
+                        "hi",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? "Hindi"
+                        : "English"
                 },
                 cancellationToken);
 
@@ -668,17 +1082,17 @@ public sealed class CivilPlaintModel(
                 .Split('\n')
                 .ToList();
 
-            RemoveSectionForExcludedField(lines, excluded, "facts", "2. FACTS OF THE CASE", "LEGAL GROUNDS");
-            RemoveSectionForExcludedField(lines, excluded, "grounds", "LEGAL GROUNDS", "SCHEDULE OF SUIT PROPERTY", "3. CAUSE OF ACTION");
-            RemoveSectionForExcludedField(lines, excluded, "limitationPleading", "5. LIMITATION", "6. COURT FEE");
-            RemoveSectionForExcludedField(lines, excluded, "territorialJurisdiction", "4. JURISDICTION", "5. LIMITATION");
-            RemoveSectionForExcludedField(lines, excluded, "courtFeePleading", "6. COURT FEE", "7. RELIEFS SOUGHT");
-            RemoveSectionForExcludedField(lines, excluded, "reliefsSought", "7. RELIEFS SOUGHT", "PRAYER");
+            RemoveSectionForExcludedField(lines, excluded, "facts", "2. FACTS OF THE CASE", "3. LEGAL GROUNDS");
+            RemoveSectionForExcludedField(lines, excluded, "grounds", "3. LEGAL GROUNDS", "SCHEDULE OF SUIT PROPERTY", "4. CAUSE OF ACTION");
+            RemoveSectionForExcludedField(lines, excluded, "limitationPleading", "6. LIMITATION", "7. COURT FEE");
+            RemoveSectionForExcludedField(lines, excluded, "territorialJurisdiction", "5. JURISDICTION", "6. LIMITATION");
+            RemoveSectionForExcludedField(lines, excluded, "courtFeePleading", "7. COURT FEE", "8. RELIEFS SOUGHT");
+            RemoveSectionForExcludedField(lines, excluded, "reliefsSought", "8. RELIEFS SOUGHT", "PRAYER");
             RemoveSectionForExcludedField(lines, excluded, "prayer", "PRAYER", "And for this act of kindness, the Plaintiff as in duty bound shall ever pray.");
 
             if (excluded.Contains("causeOfAction") && excluded.Contains("causeOfActionDate"))
             {
-                RemoveSection(lines, "3. CAUSE OF ACTION", "4. JURISDICTION");
+                RemoveSection(lines, "4. CAUSE OF ACTION", "5. JURISDICTION");
             }
 
             var fieldValues = excluded
@@ -731,14 +1145,19 @@ public sealed class CivilPlaintModel(
             {
                 lines.RemoveAll(line => line.Contains(
                     "The cause of action arose as stated in the facts above.",
-                    StringComparison.OrdinalIgnoreCase));
+                    StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains(
+                        "वाद-हेतुक उपर्युक्त तथ्यों में वर्णित घटनाओं से उत्पन्न हुआ।",
+                        StringComparison.Ordinal));
             }
             if (excluded.Contains("caseNumber") &&
                 draft.TryGetProperty("caseNumber", out var caseNumber) &&
                 (caseNumber.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ||
                  caseNumber.ValueKind == JsonValueKind.String && string.IsNullOrWhiteSpace(caseNumber.GetString())))
             {
-                lines.RemoveAll(line => line.StartsWith("Civil Suit No.", StringComparison.OrdinalIgnoreCase));
+                lines.RemoveAll(line =>
+                    line.StartsWith("Civil Suit No.", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("दीवानी वाद संख्या", StringComparison.Ordinal));
             }
             if (excluded.Contains("suitTitle") &&
                 excluded.Contains("plaintNature") &&
@@ -762,9 +1181,13 @@ public sealed class CivilPlaintModel(
 
             var prefix = trimmedLine[..^value.Length].TrimEnd();
             return prefix.Equals("IN THE COURT OF", StringComparison.OrdinalIgnoreCase) ||
+                   prefix.Equals("न्यायालय", StringComparison.Ordinal) ||
                    prefix.Equals("R/o", StringComparison.OrdinalIgnoreCase) ||
+                   prefix.Equals("निवासी", StringComparison.Ordinal) ||
                    prefix.Equals("Civil Suit No.", StringComparison.OrdinalIgnoreCase) ||
+                   prefix.Equals("दीवानी वाद संख्या", StringComparison.Ordinal) ||
                    prefix.Equals("Place:", StringComparison.OrdinalIgnoreCase) ||
+                   prefix.Equals("स्थान:", StringComparison.Ordinal) ||
                    prefix.Equals("Date:", StringComparison.OrdinalIgnoreCase);
         }
 
@@ -781,18 +1204,39 @@ public sealed class CivilPlaintModel(
         private static void RemoveSection(List<string> lines, string heading, params string[] nextHeadings)
         {
             var startIndex = lines.FindIndex(line =>
-                string.Equals(line.Trim(), heading, StringComparison.OrdinalIgnoreCase));
+                IsSectionHeading(line, heading));
             if (startIndex < 0)
                 return;
 
             var endIndexes = nextHeadings
                 .Select(nextHeading => lines.FindIndex(startIndex + 1, line =>
-                    string.Equals(line.Trim(), nextHeading, StringComparison.OrdinalIgnoreCase)))
+                    IsSectionHeading(line, nextHeading)))
                 .Where(index => index >= 0)
                 .ToList();
             var endIndex = endIndexes.Count > 0 ? endIndexes.Min() : lines.Count;
 
             lines.RemoveRange(startIndex, endIndex - startIndex);
+        }
+
+        private static bool IsSectionHeading(string line, string heading)
+        {
+            var hindiHeading = heading.ToUpperInvariant() switch
+            {
+                "2. FACTS OF THE CASE" => "2. मामले के तथ्य",
+                "3. LEGAL GROUNDS" => "3. विधिक आधार",
+                "SCHEDULE OF SUIT PROPERTY" => "वादग्रस्त संपत्ति की अनुसूची",
+                "4. CAUSE OF ACTION" => "4. वाद-हेतुक",
+                "5. JURISDICTION" => "5. अधिकारिता",
+                "6. LIMITATION" => "6. परिसीमा",
+                "7. COURT FEE" => "7. न्यायालय शुल्क",
+                "8. RELIEFS SOUGHT" => "8. माँगी गई राहतें",
+                "PRAYER" => "प्रार्थना",
+                _ => null
+            };
+            var trimmedLine = line.Trim();
+            return string.Equals(trimmedLine, heading, StringComparison.OrdinalIgnoreCase) ||
+                hindiHeading is not null &&
+                string.Equals(trimmedLine, hindiHeading, StringComparison.Ordinal);
         }
 
         private static IEnumerable<string> GetDraftStringValues(JsonElement element)
@@ -871,7 +1315,7 @@ public sealed class CivilPlaintModel(
             AppendPreviewLine(text, "1.1 The Plaintiff is as described above.");
             AppendPreviewLine(text, "1.2 The Defendant is as described above.");
             AppendPreviewList(text, "2. FACTS OF THE CASE", GetDraftStringList(draft, "facts"), "2.");
-            AppendPreviewList(text, "LEGAL GROUNDS", GetDraftStringList(draft, "grounds"), null);
+            AppendPreviewList(text, "3. LEGAL GROUNDS", GetDraftStringList(draft, "grounds"), "3.");
 
             var propertyDescription = GetDraftString(draft, "suitPropertyDescription");
             var surveyNumber = GetDraftString(draft, "surveyNumber");
@@ -892,17 +1336,17 @@ public sealed class CivilPlaintModel(
                     ("District", district)));
             }
 
-            AppendPreviewLine(text, "3. CAUSE OF ACTION");
+            AppendPreviewLine(text, "4. CAUSE OF ACTION");
             AppendPreviewLine(text, GetDraftString(draft, "causeOfAction") ??
                 "The cause of action arose as stated in the facts above.");
             AppendPreviewLine(text, GetDraftString(draft, "causeOfActionDate"));
-            AppendPreviewLine(text, "4. JURISDICTION");
+            AppendPreviewLine(text, "5. JURISDICTION");
             AppendPreviewLine(text, GetDraftString(draft, "territorialJurisdiction"));
-            AppendPreviewLine(text, "5. LIMITATION");
+            AppendPreviewLine(text, "6. LIMITATION");
             AppendPreviewLine(text, GetDraftString(draft, "limitationPleading"));
-            AppendPreviewLine(text, "6. COURT FEE");
+            AppendPreviewLine(text, "7. COURT FEE");
             AppendPreviewLine(text, GetDraftString(draft, "courtFeePleading"));
-            AppendPreviewList(text, "7. RELIEFS SOUGHT", GetDraftStringList(draft, "reliefsSought"), null);
+            AppendPreviewList(text, "8. RELIEFS SOUGHT", GetDraftStringList(draft, "reliefsSought"), null);
             AppendPreviewLine(text, "PRAYER");
             AppendPreviewLine(text, GetDraftString(draft, "prayer"));
             AppendPreviewLine(text, string.Empty);
@@ -971,7 +1415,8 @@ public sealed class CivilPlaintModel(
             for (var index = 0; index < items.Count; index++)
             {
                 var prefix = numberPrefix is null ? $"{index + 1}. " : $"{numberPrefix}{index + 1} ";
-                AppendPreviewLine(text, $"{prefix}{items[index]}");
+                var paragraph = NumberedParagraphPrefixRegex.Replace(items[index], string.Empty);
+                AppendPreviewLine(text, $"{prefix}{paragraph}");
             }
         }
 
@@ -1041,46 +1486,63 @@ public sealed class CivilPlaintModel(
         return facts.ToString();
     }
 
-    private static CivilPlaintDetailsViewModel BuildSavedPlaintDetails(CivilPlaintInput input) => new()
+    private static CivilPlaintDetailsViewModel BuildSavedPlaintDetails(
+        CivilPlaintInput input,
+        IReadOnlyDictionary<string, HindiCaseFieldTranslation>? originalTranslations = null) => new()
     {
         PlaintNature = input.PlaintNature,
-        Jurisdiction = input.Jurisdiction,
+        Jurisdiction = OriginalValue(nameof(input.Jurisdiction), input.Jurisdiction, originalTranslations),
         CourtAndSuit = new CivilPlaintCourtAndSuitViewModel
         {
-            CourtName = input.CourtName,
-            CaseTitle = input.CaseTitle,
+            CourtName = OriginalValue(nameof(input.CourtName), input.CourtName, originalTranslations),
+            CaseTitle = OriginalValue(nameof(input.CaseTitle), input.CaseTitle, originalTranslations),
             CaseNumber = input.CaseNumber,
             CauseOfActionDate = input.CauseOfActionDate,
-            PlaintiffName = input.PlaintiffName,
-            PlaintiffAddress = input.PlaintiffAddress,
-            DefendantName = input.DefendantName,
-            DefendantAddress = input.DefendantAddress
+            PlaintiffName = OriginalValue(nameof(input.PlaintiffName), input.PlaintiffName, originalTranslations),
+            PlaintiffAddress = OriginalValue(nameof(input.PlaintiffAddress), input.PlaintiffAddress, originalTranslations),
+            DefendantName = OriginalValue(nameof(input.DefendantName), input.DefendantName, originalTranslations),
+            DefendantAddress = OriginalValue(nameof(input.DefendantAddress), input.DefendantAddress, originalTranslations)
         },
         SuitProperty = new CivilPlaintSuitPropertyViewModel
         {
-            PropertyDescription = input.SuitPropertyDescription,
-            SurveyPlotNumber = input.SurveyNumber,
-            Village = input.Village,
-            Tehsil = input.Tehsil,
-            District = input.District,
-            Area = input.Area,
-            SuitValuationCourtFee = input.Valuation
+            PropertyDescription = OriginalValue(
+                nameof(input.SuitPropertyDescription),
+                input.SuitPropertyDescription,
+                originalTranslations),
+            SurveyPlotNumber = OriginalValue(nameof(input.SurveyNumber), input.SurveyNumber, originalTranslations),
+            Village = OriginalValue(nameof(input.Village), input.Village, originalTranslations),
+            Tehsil = OriginalValue(nameof(input.Tehsil), input.Tehsil, originalTranslations),
+            District = OriginalValue(nameof(input.District), input.District, originalTranslations),
+            Area = OriginalValue(nameof(input.Area), input.Area, originalTranslations),
+            SuitValuationCourtFee = OriginalValue(nameof(input.Valuation), input.Valuation, originalTranslations)
         },
         FactsAndRelief = new CivilPlaintFactsAndReliefViewModel
         {
-            Facts = input.Facts,
-            LegalGrounds = input.Grounds,
-            ReliefsSought = input.ReliefsSought,
-            Prayer = input.Prayer
+            Facts = OriginalValue(nameof(input.Facts), input.Facts, originalTranslations),
+            LegalGrounds = OriginalValue(nameof(input.Grounds), input.Grounds, originalTranslations),
+            ReliefsSought = OriginalValue(nameof(input.ReliefsSought), input.ReliefsSought, originalTranslations),
+            Prayer = OriginalValue(nameof(input.Prayer), input.Prayer, originalTranslations)
         },
         FilingDetails = new CivilPlaintFilingDetailsViewModel
         {
-            Place = input.Place,
+            Place = OriginalValue(nameof(input.Place), input.Place, originalTranslations),
             Date = input.Date,
-            AdvocateName = input.AdvocateName,
+            AdvocateName = OriginalValue(nameof(input.AdvocateName), input.AdvocateName, originalTranslations),
             EnrollmentNumber = input.AdvocateEnrollmentNo
         }
     };
+
+    private static string? OriginalValue(
+        string field,
+        string? value,
+        IReadOnlyDictionary<string, HindiCaseFieldTranslation>? originalTranslations = null)
+    {
+        return originalTranslations is not null &&
+            originalTranslations.TryGetValue(field, out var translation) &&
+            string.Equals(value, translation.Translated, StringComparison.Ordinal)
+                ? translation.Original
+                : value;
+    }
 
     private async Task<bool> RunResearchAsync(CancellationToken cancellationToken)
     {
@@ -1421,7 +1883,7 @@ public sealed class CivilPlaintModel(
     }
 }
 
-public sealed record PlaintNatureOption(string Code, string Label, string Description);
+public sealed record PlaintNatureOption(string Code, string Label, string Description, string PlaintGroup);
 
 public sealed record ExistingCaseOption(
     Guid Id,
@@ -1528,6 +1990,15 @@ public sealed class ExistingCaseDraft
 
 public sealed class HindiTranslationRequestViewModel
 {
+    public string Text { get; set; } = string.Empty;
+    public Dictionary<string, string>? Fields { get; set; }
+}
+
+public sealed record HindiCaseFieldTranslation(string Original, string Translated);
+
+public sealed class RefineCivilPlaintTextViewModel
+{
+    public string Field { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
 }
 

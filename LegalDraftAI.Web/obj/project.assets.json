@@ -1,44 +1,72 @@
 {
-  "version": 4,
+  "version": 3,
   "targets": {
-    "net8.0": {}
+    "net8.0": {
+      "GTranslate/2.4.0": {
+        "type": "package",
+        "compile": {
+          "lib/net8.0/GTranslate.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net8.0/GTranslate.dll": {
+            "related": ".xml"
+          }
+        }
+      }
+    }
   },
-  "libraries": {},
+  "libraries": {
+    "GTranslate/2.4.0": {
+      "sha512": "p42hUtyjYHoqclGNxE+2Q5g5UOuTqAS7/ojF8xyrawyRmGRXlqQbzN6SO2hBaQ2i+eGHfNN+YwHs3Mnm1aV0+A==",
+      "type": "package",
+      "path": "gtranslate/2.4.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "gtranslate.2.4.0.nupkg.sha512",
+        "gtranslate.nuspec",
+        "lib/net10.0/GTranslate.dll",
+        "lib/net10.0/GTranslate.xml",
+        "lib/net8.0/GTranslate.dll",
+        "lib/net8.0/GTranslate.xml",
+        "lib/netstandard2.0/GTranslate.dll",
+        "lib/netstandard2.0/GTranslate.xml",
+        "lib/netstandard2.1/GTranslate.dll",
+        "lib/netstandard2.1/GTranslate.xml"
+      ]
+    }
+  },
   "projectFileDependencyGroups": {
-    "net8.0": []
+    "net8.0": [
+      "GTranslate >= 2.4.0"
+    ]
   },
   "packageFolders": {
-    "C:\\Users\\HP\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "/home/parvez/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\Downloads\\LegalDraftAI\\LegalDraftAI.Web\\LegalDraftAI.Web.csproj",
+      "projectUniqueName": "/home/parvez/Projects/LegalDraftAI/LegalDraftAI.Web/LegalDraftAI.Web.csproj",
       "projectName": "LegalDraftAI.Web",
-      "projectPath": "D:\\Downloads\\LegalDraftAI\\LegalDraftAI.Web\\LegalDraftAI.Web.csproj",
-      "packagesPath": "C:\\Users\\HP\\.nuget\\packages\\",
-      "outputPath": "D:\\Downloads\\LegalDraftAI\\LegalDraftAI.Web\\obj\\",
+      "projectPath": "/home/parvez/Projects/LegalDraftAI/LegalDraftAI.Web/LegalDraftAI.Web.csproj",
+      "packagesPath": "/home/parvez/.nuget/packages/",
+      "outputPath": "/home/parvez/Projects/LegalDraftAI/LegalDraftAI.Web/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\HP\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "/home/parvez/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-        "C:\\Program Files\\dotnet\\library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
-          "framework": "net8.0",
           "targetAlias": "net8.0",
           "projectReferences": {}
         }
@@ -52,13 +80,17 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      },
-      "SdkAnalysisLevel": "10.0.300"
+      }
     },
     "frameworks": {
       "net8.0": {
-        "framework": "net8.0",
         "targetAlias": "net8.0",
+        "dependencies": {
+          "GTranslate": {
+            "target": "Package",
+            "version": "[2.4.0, )"
+          }
+        },
         "imports": [
           "net461",
           "net462",
@@ -70,24 +102,6 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
-        "downloadDependencies": [
-          {
-            "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[8.0.30, 8.0.30]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Host.win-x64",
-            "version": "[8.0.30, 8.0.30]"
-          },
-          {
-            "name": "Microsoft.NETCore.App.Ref",
-            "version": "[8.0.30, 8.0.30]"
-          },
-          {
-            "name": "Microsoft.WindowsDesktop.App.Ref",
-            "version": "[8.0.30, 8.0.30]"
-          }
-        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -96,7 +110,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.303/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/home/parvez/.dotnet/sdk/8.0.427/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

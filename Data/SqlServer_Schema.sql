@@ -122,7 +122,7 @@ BEGIN
         Facts NVARCHAR(MAX) NULL,
         LegalGrounds NVARCHAR(MAX) NULL,
         ReliefsSought NVARCHAR(MAX) NULL,
-        Prayer NVARCHAR(5000) NULL,
+        Prayer NVARCHAR(MAX) NULL,
         CONSTRAINT FK_CivilPlaintFactsAndReliefRecords_Cases
             FOREIGN KEY (CaseId) REFERENCES dbo.Cases(Id) ON DELETE CASCADE
     );

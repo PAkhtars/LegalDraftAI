@@ -35,6 +35,7 @@ public class PlaintNatureInfo
     public string Code { get; set; } = "";
     public string Label { get; set; } = "";
     public string Category { get; set; } = "Civil";
+    public string PlaintGroup { get; set; } = "";
     public string Description { get; set; } = "";
     public string SuggestedDocumentType { get; set; } = "CivilPlaint";
 }

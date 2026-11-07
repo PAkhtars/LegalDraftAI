@@ -4,19 +4,118 @@
     ViewData["Title"] = "Generate a civil plaint";
 }
 
-<section class="hero">
-    <p class="eyebrow">CIVIL LITIGATION</p>
-    <h1>Build a civil plaint from your case facts.</h1>
-    <p class="hero-copy">Add the parties, suit details, property schedule, and material facts. Review the draft carefully before filing.</p>
-</section>
+<div class="civil-plaint-page" data-language-scope>
+    <section class="hero">
+        <div class="civil-plaint-preferences">
+            <div class="civil-plaint-language" role="group" aria-label="Page language" data-language-group>
+                <span class="civil-plaint-language-label" data-language-label>Language</span>
+                <button type="button" class="language-option" data-page-language="en" aria-pressed="true">English</button>
+                <button type="button" class="language-option" data-page-language="hi" aria-pressed="false">हिन्दी</button>
+            </div>
+            <fieldset class="field ai-provider-field">
+                <legend>AI service for generation</legend>
+                <div class="ai-provider-options">
+                    <label class="ai-provider-option">
+                        <input asp-for="SelectedAiProvider" type="radio" value="Groq" form="civil-plaint-form" />
+                        <span>Groq</span>
+                    </label>
+                    <label class="ai-provider-option">
+                        <input asp-for="SelectedAiProvider" type="radio" value="Gemini" form="civil-plaint-form" />
+                        <span>Google Gemini</span>
+                    </label>
+                </div>
+                <span asp-validation-for="SelectedAiProvider" class="validation-message"></span>
+            </fieldset>
+        </div>
+        <p class="eyebrow">CIVIL LITIGATION</p>
+        <h1>Build a civil plaint from your case facts.</h1>
+        <p class="hero-copy">Add the parties, suit details, property schedule, and material facts. Review the draft carefully before filing.</p>
+    </section>
 
-@if (!string.IsNullOrWhiteSpace(Model.ApiStatusMessage))
-{
-    <div class="notice notice-warning" role="status">@Model.ApiStatusMessage</div>
-}
+    @if (!string.IsNullOrWhiteSpace(Model.ApiStatusMessage))
+    {
+        <div class="notice notice-warning" role="status">@Model.ApiStatusMessage</div>
+    }
 
-<div class="workspace">
+    <div class="workspace">
+    <aside class="voice-assistant" data-voice-assistant data-expanded="false" aria-labelledby="voice-assistant-title">
+        <div class="voice-assistant-heading">
+            <div class="voice-assistant-heading-copy">
+                <span class="eyebrow" data-assistant-eyebrow>GUIDED INTAKE</span>
+                <span class="voice-assistant-title" id="voice-assistant-title" data-assistant-title>Voice form assistant</span>
+            </div>
+            <div class="voice-assistant-heading-actions">
+                <span class="voice-assistant-indicator" data-assistant-indicator aria-hidden="true">●</span>
+                <button type="button"
+                        class="voice-assistant-toggle"
+                        data-assistant-toggle
+                        aria-expanded="false"
+                        aria-controls="voice-assistant-panel"
+                        aria-label="Expand voice assistance">+</button>
+            </div>
+        </div>
+        <div class="voice-assistant-content" id="voice-assistant-panel" hidden>
+            <p class="voice-assistant-description" data-assistant-description>Answer questions by voice or type. Your answers go into the existing plaint form for you to review.</p>
+            <p class="voice-assistant-question" data-assistant-question aria-live="polite"></p>
+            <div class="voice-assistant-options" data-assistant-options hidden>
+                <p class="voice-assistant-options-label" data-assistant-options-label>Available options</p>
+                <div class="voice-assistant-option-list" data-assistant-option-list></div>
+            </div>
+            <p class="voice-assistant-status" data-assistant-status role="status" aria-live="polite"></p>
+            <label class="visually-hidden" for="voice-assistant-answer" data-assistant-answer-label>Your answer</label>
+            <div class="voice-assistant-answer-row">
+                <input id="voice-assistant-answer" class="form-control" type="text" data-assistant-answer autocomplete="off" />
+                <button type="button" class="secondary-button" data-assistant-action="answer" data-assistant-answer-button>Use answer</button>
+            </div>
+            <p class="voice-assistant-hint" data-assistant-hint>Voice commands: “next question”, “repeat question”, “go back”, “change my answer”, “skip this question”, “read my details”, “stop assistance”, and “complete form”.</p>
+            <p class="voice-assistant-privacy" data-assistant-privacy>Voice recognition depends on your browser and may use its speech service. You can type instead; avoid speaking confidential information unless you are comfortable with your browser’s privacy terms.</p>
+        </div>
+        <div class="voice-assistant-controls" role="group" aria-label="Voice assistance controls" data-assistant-controls>
+            <button type="button" class="secondary-button" data-assistant-action="start" aria-label="Begin assistance" data-caption="Begin assistance">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"></path></svg>
+                <span class="visually-hidden" data-command-label>Begin assistance</span>
+            </button>
+            <button type="button" class="secondary-button" data-assistant-action="listen" aria-label="Listen" data-caption="Listen">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4m4-8v12m4-15v18m4-14v10m4-7v4"></path></svg>
+                <span class="visually-hidden" data-command-label>Listen</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="repeat" aria-label="Repeat question" data-caption="Repeat question">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"></path><path d="M5.5 9A7 7 0 0 1 17 6l3 6M4 12l3 6a7 7 0 0 0 11.5-3"></path></svg>
+                <span class="visually-hidden" data-command-label>Repeat question</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="next" aria-label="Next question" data-caption="Next question">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h14m-6-6 6 6-6 6M20 5v14"></path></svg>
+                <span class="visually-hidden" data-command-label>Next question</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="back" aria-label="Go back" data-caption="Go back">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12H6m6 6-6-6 6-6M4 5v14"></path></svg>
+                <span class="visually-hidden" data-command-label>Go back</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="change" aria-label="Change my answer" data-caption="Change my answer">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5 4 4M4 20l4-.8L19 8a2.8 2.8 0 0 0-4-4L4 15z"></path></svg>
+                <span class="visually-hidden" data-command-label>Change my answer</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="skip" aria-label="Skip this question" data-caption="Skip this question">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 10 7-10 7zM19 5v14"></path></svg>
+                <span class="visually-hidden" data-command-label>Skip this question</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="read" aria-label="Read my details" data-caption="Read my details">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5.5c3-1 6-.6 9 1.2v14c-3-1.8-6-2.2-9-1.2zm18 0c-3-1-6-.6-9 1.2v14c3-1.8 6-2.2 9-1.2z"></path></svg>
+                <span class="visually-hidden" data-command-label>Read my details</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="pause" aria-label="Pause assistance" data-caption="Pause assistance">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"></path></svg>
+                <span class="visually-hidden" data-command-label>Pause assistance</span>
+            </button>
+            <button type="button" class="text-button" data-assistant-action="complete" aria-label="Complete form" data-caption="Complete form">
+                <svg class="voice-command-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 5 5L20 6"></path></svg>
+                <span class="visually-hidden" data-command-label>Complete form</span>
+            </button>
+        </div>
+    </aside>
+
     <form method="post" asp-page="/CivilPlaint" asp-antiforgery="true" enctype="multipart/form-data" class="draft-form" id="civil-plaint-form">
+        <input asp-for="SelectedLanguage" type="hidden" data-page-language-input />
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
 
         <section class="form-section">
@@ -124,9 +223,14 @@
                     <label asp-for="Input.PlaintNature">Nature of plaint <span class="optional-tag">Optional if facts are provided</span></label>
                     <select asp-for="Input.PlaintNature" class="form-select">
                         <option value="">Select suit type</option>
-                        @foreach (var nature in Model.PlaintNatures)
+                        @foreach (var natureGroup in Model.PlaintNatures.GroupBy(nature => nature.PlaintGroup))
                         {
-                            <option value="@nature.Code">@nature.Label</option>
+                            <optgroup label="@natureGroup.Key">
+                                @foreach (var nature in natureGroup)
+                                {
+                                    <option value="@nature.Code">@nature.Label</option>
+                                }
+                            </optgroup>
                         }
                     </select>
                     <span asp-validation-for="Input.PlaintNature" class="field-error"></span>
@@ -138,7 +242,7 @@
             </div>
             <div class="field field-spaced">
                 <label asp-for="Input.Facts">Case facts <span class="optional-tag">Optional for research; required to generate</span></label>
-                <textarea asp-for="Input.Facts" class="form-control facts-input" rows="6" placeholder="Paste a short account of the dispute. For example, describe a debt, a property title dispute, or interference with possession."></textarea>
+                <textarea asp-for="Input.Facts" class="form-control facts-input" rows="6" data-ai-refine-field="facts" placeholder="Paste a short account of the dispute. For example, describe a debt, a property title dispute, or interference with possession."></textarea>
                 <span class="field-hint">Facts may be used to suggest a plaint nature. Do not include confidential information unless authorized to share it with the configured drafting service.</span>
                 <span asp-validation-for="Input.Facts" class="field-error"></span>
             </div>
@@ -152,7 +256,7 @@
 
         @if (Model.ResearchResult is not null)
         {
-            <details class="form-section research-section civil-plaint-collapsible-section" aria-live="polite">
+            <details class="form-section research-section civil-plaint-collapsible-section" aria-live="polite" data-voice-document-checklist>
                 <summary class="section-heading">
                     <span class="section-number">02</span>
                     <div>
@@ -168,7 +272,12 @@
                         {
                             var alreadyHave = Model.ResearchResult.AlreadyHave.Contains(document.Code, StringComparer.OrdinalIgnoreCase);
                             <label class="document-row">
-                                <input type="checkbox" name="Input.AlreadyHaveDocumentCodes" value="@document.Code" checked="@alreadyHave" />
+                                <input type="checkbox"
+                                       name="Input.AlreadyHaveDocumentCodes"
+                                       value="@document.Code"
+                                       checked="@alreadyHave"
+                                       data-voice-document-code="@document.Code"
+                                       data-voice-document-optional="@(document.IsMandatoryForFiling ? "false" : "true")" />
                                 <span class="document-label">
                                     <strong>@document.Label</strong>
                                     <small>@document.Purpose · @document.Code</small>
@@ -275,7 +384,22 @@
                                 {
                                     var label = Model.ResearchResult.RequiredDocuments
                                         .FirstOrDefault(document => document.Code.Equals(upload.DocumentCode, StringComparison.OrdinalIgnoreCase))?.Label ?? upload.DocumentCode;
-                                    <li><strong>@label</strong><span>@upload.FileName</span></li>
+                                    <li data-voice-uploaded-document="@upload.DocumentCode">
+                                        <strong>@label</strong>
+                                        <span>@upload.FileName</span>
+                                        <details class="voice-assistant-ocr-review">
+                                            <summary>Review extracted text (OCR)</summary>
+                                            @if (string.IsNullOrWhiteSpace(upload.Text))
+                                            {
+                                                <p class="field-hint">No readable text was extracted. Check the original file and upload a clearer or text-readable copy if needed.</p>
+                                            }
+                                            else
+                                            {
+                                                <pre class="result-json">@upload.Text</pre>
+                                                <p class="field-hint">Compare this OCR text with the original document. Correct any affected plaint fields above; OCR is not verified evidence and may contain recognition errors.</p>
+                                            }
+                                        </details>
+                                    </li>
                                 }
                             </ul>
                         </details>
@@ -347,7 +471,7 @@
             </summary>
             <div class="field">
                 <label asp-for="Input.SuitPropertyDescription">Property description <span class="optional-tag">Optional</span></label>
-                <textarea asp-for="Input.SuitPropertyDescription" class="form-control" rows="3" placeholder="Boundaries, location, title particulars, or other identifying details"></textarea>
+                <textarea asp-for="Input.SuitPropertyDescription" class="form-control" rows="3" data-ai-refine-field="propertyDescription" placeholder="Boundaries, location, title particulars, or other identifying details"></textarea>
             </div>
             <div class="field-grid field-grid-spaced">
                 <div class="field">
@@ -388,16 +512,16 @@
             <div class="field-grid field-grid-spaced">
                 <div class="field">
                     <label asp-for="Input.Grounds">Legal grounds <span class="optional-tag">Optional</span></label>
-                    <textarea asp-for="Input.Grounds" class="form-control" rows="4" placeholder="Any legal grounds or provisions already identified"></textarea>
+                    <textarea asp-for="Input.Grounds" class="form-control" rows="4" data-ai-refine-field="grounds" placeholder="Any legal grounds or provisions already identified"></textarea>
                 </div>
                 <div class="field">
                     <label asp-for="Input.ReliefsSought">Reliefs sought <span class="optional-tag">Optional</span></label>
-                    <textarea asp-for="Input.ReliefsSought" class="form-control" rows="4" placeholder="For example, declaration, possession, injunction, or recovery of money"></textarea>
+                    <textarea asp-for="Input.ReliefsSought" class="form-control" rows="4" data-ai-refine-field="reliefsSought" placeholder="For example, declaration, possession, injunction, or recovery of money"></textarea>
                 </div>
             </div>
             <div class="field field-spaced">
                 <label asp-for="Input.Prayer">Prayer <span class="optional-tag">Optional</span></label>
-                <textarea asp-for="Input.Prayer" class="form-control" rows="3"></textarea>
+                <textarea asp-for="Input.Prayer" class="form-control" rows="3" data-ai-refine-field="prayer"></textarea>
             </div>
         </details>
 
@@ -583,6 +707,7 @@
                     <p class="field-hint">The generated draft is saved to the case. The individual form sections were not separately saved.</p>
                 }
                 <form method="post" asp-page-handler="Export">
+                    <input type="hidden" name="SelectedLanguage" value="@Model.SelectedLanguage" data-page-language-input />
                     <input asp-for="Input.GeneratedDraftJson" type="hidden" />
                     <button type="submit" class="secondary-button" formnovalidate>
                         Download original generated PDF <span aria-hidden="true">↓</span>
@@ -598,12 +723,229 @@
     <partial name="_ValidationScriptsPartial" />
     <script>
         (() => {
+            const languageScope = document.querySelector("[data-language-scope]");
+            const languageButtons = Array.from(document.querySelectorAll("[data-page-language]"));
+            const languageLabel = document.querySelector("[data-language-label]");
+            const languageGroup = document.querySelector("[data-language-group]");
+            const languageInputs = Array.from(document.querySelectorAll("[data-page-language-input]"));
+            const languageStorageKey = "civil-plaint-language";
+            const translations = {
+                "CIVIL LITIGATION": "दीवानी मुकदमा",
+                "Build a civil plaint from your case facts.": "अपने मामले के तथ्यों से दीवानी वादपत्र तैयार करें।",
+                "Add the parties, suit details, property schedule, and material facts. Review the draft carefully before filing.": "पक्षकारों, वाद के विवरण, संपत्ति की अनुसूची और महत्वपूर्ण तथ्यों को जोड़ें। दाखिल करने से पहले मसौदे की सावधानीपूर्वक समीक्षा करें।",
+                "Continue an existing case": "मौजूदा मामला जारी रखें",
+                "Select a saved civil case to load its details and supporting documents.": "विवरण और सहायक दस्तावेज़ लोड करने के लिए सुरक्षित दीवानी मामला चुनें।",
+                "Could not load existing cases. Check that the LegalDraftAI API is running.": "मौजूदा मामले लोड नहीं हो सके। जाँचें कि LegalDraftAI API चल रही है।",
+                "Saved civil case": "सुरक्षित दीवानी मामला",
+                "Start a new case": "नया मामला शुरू करें",
+                "Load selected case": "चुना हुआ मामला लोड करें",
+                "Show saved supporting documents": "सुरक्षित सहायक दस्तावेज़ दिखाएँ",
+                "View": "देखें",
+                "Download": "डाउनलोड करें",
+                "View extracted text": "निकाला गया पाठ देखें",
+                "Translate extracted text to Hindi": "निकाले गए पाठ का हिंदी में अनुवाद करें",
+                "Hindi translation is available for extracted text up to 30,000 characters.": "निकाले गए 30,000 अक्षरों तक के पाठ का हिंदी अनुवाद उपलब्ध है।",
+                "Hindi translation": "हिंदी अनुवाद",
+                "Start with the dispute": "विवाद का विवरण दें",
+                "Select the plaint nature or describe the dispute so we can identify the supporting documents.": "वाद का प्रकार चुनें या विवाद का वर्णन करें, ताकि आवश्यक सहायक दस्तावेज़ पहचाने जा सकें।",
+                "Nature of plaint": "वाद का प्रकार",
+                "Illegal possession of ancestral land": "पैतृक भूमि पर अवैध कब्ज़ा",
+                "Declaration of title to property": "संपत्ति के स्वामित्व की घोषणा",
+                "Permanent injunction (property interference)": "स्थायी निषेधाज्ञा (संपत्ति में हस्तक्षेप)",
+                "Recovery of money": "धन की वसूली",
+                "Specific performance of contract": "संविदा का विशिष्ट पालन",
+                "Partition of joint / ancestral property": "संयुक्त / पैतृक संपत्ति का विभाजन",
+                "Optional if facts are provided": "तथ्य देने पर वैकल्पिक",
+                "Select suit type": "वाद का प्रकार चुनें",
+                "State / jurisdiction": "राज्य / अधिकार-क्षेत्र",
+                "Case facts": "मामले के तथ्य",
+                "Optional for research; required to generate": "शोध के लिए वैकल्पिक; मसौदा बनाने के लिए आवश्यक",
+                "Paste a short account of the dispute. For example, describe a debt, a property title dispute, or interference with possession.": "विवाद का संक्षिप्त विवरण लिखें। उदाहरण के लिए, ऋण, संपत्ति के स्वामित्व का विवाद या कब्ज़े में हस्तक्षेप बताएं।",
+                "Facts may be used to suggest a plaint nature. Do not include confidential information unless authorized to share it with the configured drafting service.": "तथ्यों के आधार पर वाद का प्रकार सुझाया जा सकता है। अधिकृत होने पर ही गोपनीय जानकारी कॉन्फ़िगर की गई मसौदा सेवा के साथ साझा करें।",
+                "Step 1 of 3 · Identify the matter": "चरण 1 / 3 · मामले की पहचान करें",
+                "Research documents": "दस्तावेज़ों पर शोध करें",
+                "Document checklist": "दस्तावेज़ जाँच-सूची",
+                "Tick documents already available to the client. Uploaded documents are added to the checklist after research is run again.": "ग्राहक के पास पहले से उपलब्ध दस्तावेज़ चुनें। दोबारा शोध करने पर अपलोड किए गए दस्तावेज़ जाँच-सूची में जुड़ेंगे।",
+                "Already have": "पहले से उपलब्ध",
+                "Missing": "अनुपलब्ध",
+                "Critical": "अत्यावश्यक",
+                "Recommended": "सुझावित",
+                "Mandatory set complete.": "अनिवार्य दस्तावेज़ पूरे हैं।",
+                "You can proceed to generate the plaint. Review any recommended documents marked missing.": "अब आप वादपत्र बना सकते हैं। अनुपलब्ध सुझाए गए दस्तावेज़ों की समीक्षा करें।",
+                "Map and upload supporting documents, or mark documents already held by the client.": "सहायक दस्तावेज़ चुनकर अपलोड करें या ग्राहक के पास मौजूद दस्तावेज़ों को चिह्नित करें।",
+                "Recommended documents still missing:": "अभी भी अनुपलब्ध सुझाए गए दस्तावेज़:",
+                "Step 2 of 3 · Confirm documents held": "चरण 2 / 3 · उपलब्ध दस्तावेज़ों की पुष्टि करें",
+                "Re-run research": "शोध दोबारा चलाएँ",
+                "Upload supporting documents": "सहायक दस्तावेज़ अपलोड करें",
+                "Choose a file and map it to the matching checklist item. Supported formats: PDF, DOCX, TXT, PNG, JPG, TIFF, BMP, GIF, and WebP. Images are read with local English and Hindi OCR.": "फ़ाइल चुनें और उसे जाँच-सूची के संबंधित दस्तावेज़ से जोड़ें। समर्थित प्रारूप: PDF, DOCX, TXT, PNG, JPG, TIFF, BMP, GIF और WebP। चित्रों का पाठ स्थानीय अंग्रेज़ी और हिंदी OCR से पढ़ा जाता है।",
+                "Document file": "दस्तावेज़ फ़ाइल",
+                "Checklist document": "जाँच-सूची का दस्तावेज़",
+                "Map this file to a document": "इस फ़ाइल को दस्तावेज़ से जोड़ें",
+                "Remove this upload": "यह अपलोड हटाएँ",
+                "Remove": "हटाएँ",
+                "+ Add another document": "+ एक और दस्तावेज़ जोड़ें",
+                "Upload and extract": "अपलोड करें और पाठ निकालें",
+                "Extracted uploads": "अपलोड से निकाले गए दस्तावेज़",
+                "Extracted text is stored server-side for this session and included as supporting context when the plaint is generated.": "निकाला गया पाठ इस सत्र के लिए सर्वर पर सुरक्षित रहता है और वादपत्र बनाते समय सहायक संदर्भ के रूप में शामिल होता है।",
+                "Court and suit": "न्यायालय और वाद",
+                "Identify the court, parties, and case particulars.": "न्यायालय, पक्षकारों और मामले के विवरण की पहचान करें।",
+                "Court name": "न्यायालय का नाम",
+                "e.g. Court of the Civil Judge (Senior Division), Jaipur": "उदाहरण: सिविल न्यायाधीश (वरिष्ठ खंड), जयपुर का न्यायालय",
+                "Case title": "मामले का शीर्षक",
+                "e.g. Asha Devi v. Rajesh Kumar": "उदाहरण: आशा देवी बनाम राजेश कुमार",
+                "Case number": "मामला संख्या",
+                "Leave blank if not assigned": "आवंटित न हुई हो तो खाली छोड़ें",
+                "Optional": "वैकल्पिक",
+                "Cause of action date": "वाद-हेतुक की तारीख",
+                "Plaintiff name": "वादी का नाम",
+                "Defendant name": "प्रतिवादी का नाम",
+                "Plaintiff address": "वादी का पता",
+                "Defendant address": "प्रतिवादी का पता",
+                "Suit property": "वाद की संपत्ति",
+                "Complete this schedule where the dispute concerns land or other property.": "भूमि या अन्य संपत्ति से संबंधित विवाद में यह विवरण भरें।",
+                "Property description": "संपत्ति का विवरण",
+                "Boundaries, location, title particulars, or other identifying details": "सीमाएँ, स्थान, स्वामित्व का विवरण या पहचान संबंधी अन्य जानकारी",
+                "Survey / plot number": "सर्वेक्षण / भूखंड संख्या",
+                "Area": "क्षेत्रफल",
+                "e.g. 2 hectares": "उदाहरण: 2 हेक्टेयर",
+                "Village": "गाँव",
+                "Tehsil": "तहसील",
+                "District": "ज़िला",
+                "Suit valuation / court fee": "वाद का मूल्यांकन / न्यायालय शुल्क",
+                "As assessed for the applicable court fee": "लागू न्यायालय शुल्क के अनुसार निर्धारित",
+                "Facts and relief": "तथ्य और राहत",
+                "Give a clear chronology and list the legal grounds and reliefs requested.": "घटनाओं का स्पष्ट क्रम दें और कानूनी आधार तथा माँगी गई राहत सूचीबद्ध करें।",
+                "Legal grounds": "कानूनी आधार",
+                "Any legal grounds or provisions already identified": "पहचाने गए कानूनी आधार या प्रावधान",
+                "Reliefs sought": "माँगी गई राहत",
+                "For example, declaration, possession, injunction, or recovery of money": "उदाहरण: घोषणा, कब्ज़ा, निषेधाज्ञा या धन की वसूली",
+                "Prayer": "प्रार्थना",
+                "Filing details": "दाखिला संबंधी विवरण",
+                "These details are used for the place, date, and advocate portions of the draft.": "इन विवरणों का उपयोग मसौदे में स्थान, तारीख और अधिवक्ता संबंधी भागों के लिए होगा।",
+                "Place": "स्थान",
+                "Date": "तारीख",
+                "Advocate name": "अधिवक्ता का नाम",
+                "Enrollment number": "नामांकन संख्या",
+                "Supporting files for plaint generation": "वादपत्र बनाने के लिए सहायक फ़ाइलें",
+                "Exclude all attached files": "सभी संलग्न फ़ाइलें शामिल न करें",
+                "Exclude": "शामिल न करें",
+                "Required details · Mandatory documents complete": "आवश्यक विवरण · अनिवार्य दस्तावेज़ पूरे",
+                "Complete all Critical documents before generating": "मसौदा बनाने से पहले सभी अत्यावश्यक दस्तावेज़ पूरे करें",
+                "Save these sections in separate SQL tables for reloading later": "बाद में फिर से लोड करने के लिए इन अनुभागों को अलग SQL तालिकाओं में सुरक्षित करें",
+                "Generated drafts are stored with the case. This option also saves the form sections separately so they can be restored when reopening it.": "बने हुए मसौदे मामले के साथ सुरक्षित रहते हैं। यह विकल्प फ़ॉर्म के अनुभागों को अलग से भी सुरक्षित करता है, ताकि मामला दोबारा खोलने पर उन्हें पुनः प्राप्त किया जा सके।",
+                "AI service for generation": "मसौदा बनाने के लिए AI सेवा",
+                "Google Gemini": "Google Gemini",
+                "Generate plaint": "वादपत्र बनाएँ",
+                "GENERATED DRAFT": "तैयार मसौदा",
+                "Review your civil plaint": "अपने दीवानी वादपत्र की समीक्षा करें",
+                "Request needs attention": "अनुरोध पर ध्यान देना आवश्यक है",
+                "Needs attention": "ध्यान देना आवश्यक है",
+                "Review before use": "उपयोग से पहले समीक्षा करें",
+                "Editable Word preview": "संपादन योग्य Word पूर्वावलोकन",
+                "Edit the document below, then download your edited copy as a DOCX file.": "नीचे दस्तावेज़ संपादित करें, फिर संपादित प्रति DOCX फ़ाइल के रूप में डाउनलोड करें।",
+                "Download edited DOCX": "संपादित DOCX डाउनलोड करें",
+                "Use saved Civil DOCX format": "सुरक्षित दीवानी DOCX प्रारूप चुनें",
+                "Use the standard plaint format": "मानक वादपत्र प्रारूप इस्तेमाल करें",
+                "When selected, matching placeholders such as": "चुनने पर, जैसे मेल खाने वाले प्लेसहोल्डर",
+                "are replaced with generated plaint values. Placeholders without a matching value are cleared. Without a selection, the standard plaint DOCX is downloaded.": "को बने हुए वादपत्र के मानों से बदला जाएगा। मेल न खाने वाले प्लेसहोल्डर हटा दिए जाएँगे। कुछ न चुनने पर मानक वादपत्र DOCX डाउनलोड होगा।",
+                "No Civil DOCX formats are saved yet. Add one from Civil Cases → Draft Format Master.": "अभी कोई दीवानी DOCX प्रारूप सुरक्षित नहीं है। दीवानी मामले → मसौदा प्रारूप मास्टर से प्रारूप जोड़ें।",
+                "Fields to omit from DOCX": "DOCX से हटाए जाने वाले फ़ील्ड",
+                "Select any fields from the generated JSON to remove their content from the downloaded Word document. The editable preview and saved generated draft remain unchanged.": "डाउनलोड किए गए Word दस्तावेज़ से सामग्री हटाने के लिए तैयार JSON के फ़ील्ड चुनें। संपादन योग्य पूर्वावलोकन और सुरक्षित मसौदा अपरिवर्तित रहेंगे।",
+                "Exclude all fields": "सभी फ़ील्ड शामिल न करें",
+                "Editable generated civil plaint": "संपादन योग्य तैयार दीवानी वादपत्र",
+                "Changes made here are included in the downloaded DOCX. The original generated draft remains saved with the case.": "यहाँ किए गए बदलाव डाउनलोड किए गए DOCX में शामिल होंगे। मूल मसौदा मामले के साथ सुरक्षित रहेगा।",
+                "Court and suit, suit property, facts and relief, and filing details were saved in their separate SQL tables.": "न्यायालय और वाद, वाद की संपत्ति, तथ्य और राहत तथा दाखिला विवरण अलग-अलग SQL तालिकाओं में सुरक्षित किए गए।",
+                "The generated draft is saved to the case. The individual form sections were not separately saved.": "तैयार मसौदा मामले के साथ सुरक्षित है। फ़ॉर्म के अलग-अलग अनुभाग अलग से सुरक्षित नहीं किए गए।",
+                "Download original generated PDF": "मूल तैयार PDF डाउनलोड करें",
+                "AI-generated legal drafts may contain errors. Have a qualified advocate verify all facts, limitation, court fee, applicable law, and requested relief before filing.": "AI से बने कानूनी मसौदों में त्रुटियाँ हो सकती हैं। दाखिल करने से पहले योग्य अधिवक्ता से सभी तथ्यों, परिसीमा, न्यायालय शुल्क, लागू कानून और माँगी गई राहत की जाँच कराएँ।"
+            };
+            const attributeTranslations = {
+                "e.g. Rajasthan": "उदाहरण: राजस्थान",
+                "Court of the Civil Judge (Senior Division), Jaipur": "सिविल न्यायाधीश (वरिष्ठ खंड), जयपुर का न्यायालय",
+                "Asha Devi v. Rajesh Kumar": "आशा देवी बनाम राजेश कुमार",
+                "Leave blank if not assigned": "आवंटित न हुई हो तो खाली छोड़ें",
+                "Paste a short account of the dispute. For example, describe a debt, a property title dispute, or interference with possession.": "विवाद का संक्षिप्त विवरण लिखें। उदाहरण के लिए, ऋण, संपत्ति के स्वामित्व का विवाद या कब्ज़े में हस्तक्षेप बताएं।",
+                "Boundaries, location, title particulars, or other identifying details": "सीमाएँ, स्थान, स्वामित्व का विवरण या पहचान संबंधी अन्य जानकारी",
+                "e.g. 2 hectares": "उदाहरण: 2 हेक्टेयर",
+                "As assessed for the applicable court fee": "लागू न्यायालय शुल्क के अनुसार निर्धारित",
+                "Any legal grounds or provisions already identified": "पहचाने गए कानूनी आधार या प्रावधान",
+                "For example, declaration, possession, injunction, or recovery of money": "उदाहरण: घोषणा, कब्ज़ा, निषेधाज्ञा या धन की वसूली",
+                "Remove this upload": "यह अपलोड हटाएँ",
+                "Editable generated civil plaint": "संपादन योग्य तैयार दीवानी वादपत्र"
+            };
+
+            const textOriginals = new WeakMap();
+            const attributeOriginals = new WeakMap();
+
+            const translatePage = (language) => {
+                if (!languageScope) return;
+                const isHindi = language === "hi";
+                const textWalker = document.createTreeWalker(languageScope, NodeFilter.SHOW_TEXT);
+                let textNode;
+                while ((textNode = textWalker.nextNode())) {
+                    if (textNode.parentElement.closest(".civil-plaint-language, .result-json, [data-docx-preview]")) continue;
+                    if (!textOriginals.has(textNode)) textOriginals.set(textNode, textNode.nodeValue);
+                    const original = textOriginals.get(textNode);
+                    const normalized = original.trim();
+                    const translated = isHindi ? translations[normalized] : normalized;
+                    if (!translated) {
+                        if (!isHindi) textNode.nodeValue = original;
+                        continue;
+                    }
+                    const leading = original.match(/^\s*/)[0];
+                    const trailing = original.match(/\s*$/)[0];
+                    textNode.nodeValue = `${leading}${translated}${trailing}`;
+                }
+
+                languageScope.querySelectorAll("[placeholder], [aria-label]").forEach((element) => {
+                    ["placeholder", "aria-label"].forEach((attribute) => {
+                        if (!element.hasAttribute(attribute)) return;
+                        let originals = attributeOriginals.get(element);
+                        if (!originals) {
+                            originals = {};
+                            attributeOriginals.set(element, originals);
+                        }
+                        if (!(attribute in originals)) originals[attribute] = element.getAttribute(attribute);
+                        const original = originals[attribute];
+                        element.setAttribute(attribute, isHindi ? (attributeTranslations[original] || original) : original);
+                    });
+                });
+
+                languageButtons.forEach((button) => {
+                    button.setAttribute("aria-pressed", String(button.dataset.pageLanguage === language));
+                });
+                if (languageLabel) languageLabel.textContent = isHindi ? "भाषा" : "Language";
+                if (languageGroup) languageGroup.setAttribute("aria-label", isHindi ? "पृष्ठ की भाषा" : "Page language");
+                document.documentElement.lang = isHindi ? "hi" : "en";
+                document.title = isHindi ? "दीवानी वादपत्र तैयार करें - Legal Draft AI" : "Generate a civil plaint - Legal Draft AI";
+                languageInputs.forEach((input) => {
+                    input.value = language;
+                });
+            };
+
+            let currentLanguage = localStorage.getItem(languageStorageKey) === "hi" ||
+                (localStorage.getItem(languageStorageKey) === null &&
+                    languageInputs.some((input) => input.value === "hi"))
+                ? "hi"
+                : "en";
+            translatePage(currentLanguage);
+            languageButtons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    currentLanguage = button.dataset.pageLanguage;
+                    localStorage.setItem(languageStorageKey, currentLanguage);
+                    document.cookie = `${languageStorageKey}=${currentLanguage}; path=/; max-age=31536000; samesite=lax`;
+                    translatePage(currentLanguage);
+                });
+            });
+
             const rows = document.getElementById("upload-rows");
             const template = document.getElementById("upload-row-template");
             const addButton = document.getElementById("add-upload");
             if (rows && template && addButton) {
                 addButton.addEventListener("click", () => {
-                    rows.append(template.content.cloneNode(true));
+                    const addedRows = template.content.cloneNode(true);
+                    rows.append(addedRows);
+                    translatePage(currentLanguage);
                 });
 
                 rows.addEventListener("click", (event) => {
@@ -663,7 +1005,10 @@
                     fieldExclusions.forEach((checkbox) => checkbox.addEventListener("change", updateSelectAllFields));
                     updateSelectAllFields();
                 }
-            }
+        }
+
         })();
-    </script>
+        </script>
+        <script src="~/js/civil-plaint-refinement.js" asp-append-version="true"></script>
+        <script src="~/js/civil-plaint-voice.js" asp-append-version="true"></script>
 }

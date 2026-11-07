@@ -46,7 +46,7 @@ public sealed class DraftFormatMastersController(IDraftFormatMasterService servi
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<DraftFormatMasterResponse>> Create(
         [FromForm] CreateDraftFormatMasterRequest request,
-        [FromForm] IFormFile? file,
+        IFormFile? file,
         CancellationToken cancellationToken)
     {
         if (!IsSupportedCategory(request.Category))
@@ -78,7 +78,7 @@ public sealed class DraftFormatMastersController(IDraftFormatMasterService servi
     public async Task<ActionResult<DraftFormatMasterResponse>> Update(
         Guid id,
         [FromForm] UpdateDraftFormatMasterRequest request,
-        [FromForm] IFormFile? file,
+        IFormFile? file,
         CancellationToken cancellationToken)
     {
         if (!IsSupportedCategory(request.Category))

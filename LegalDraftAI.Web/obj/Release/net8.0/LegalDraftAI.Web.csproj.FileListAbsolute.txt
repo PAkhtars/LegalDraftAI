@@ -31,3 +31,7 @@ D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\refint\LegalDraftA
 D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\LegalDraftAI.Web.pdb
 D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\LegalDraftAI.Web.genruntimeconfig.cache
 D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\ref\LegalDraftAI.Web.dll
+D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\LegalDraftAI.Web.sourcelink.json
+D:\Downloads\LegalDraftAI\LegalDraftAI.Web\bin\Release\net8.0\GTranslate.dll
+D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\LegalDraftAI.Web.csproj.AssemblyReference.cache
+D:\Downloads\LegalDraftAI\LegalDraftAI.Web\obj\Release\net8.0\LegalDra.A7F61616.Up2Date

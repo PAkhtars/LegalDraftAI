@@ -41,7 +41,10 @@ public class GroqDraftService : IGroqDraftService
             };
         }
 
-        var systemPrompt = BuildSystemPrompt(request.DocumentType, request.Jurisdiction);
+        var systemPrompt = BuildSystemPrompt(
+            request.DocumentType,
+            request.Jurisdiction,
+            request.OutputLanguage);
         var userPrompt = BuildUserPrompt(request);
 
         var body = new
@@ -122,6 +125,78 @@ public class GroqDraftService : IGroqDraftService
         return string.Join(Environment.NewLine, translatedChunks);
     }
 
+    public async Task<string> RefineCivilPlaintTextAsync(
+        string field,
+        string text,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            throw new InvalidOperationException(
+                "Groq API key is not configured. Set it using .NET User Secrets or the Groq__ApiKey environment variable.");
+        }
+
+        var fieldInstructions = field switch
+        {
+            "facts" => "Reorder the supplied facts into a clear, chronological factual narrative.",
+            "propertyDescription" => "Organize the supplied property-identification details into a clear, coherent description.",
+            "grounds" => "Improve the organization and grammar of only the legal grounds already supplied. Do not add legal grounds, authorities, or citations.",
+            "reliefsSought" => "Organize only the requested reliefs already supplied into a clear, logically ordered list.",
+            "prayer" => "Improve the clarity and grammar of the supplied prayer while preserving exactly the reliefs requested.",
+            _ => throw new ArgumentException("Unsupported civil plaint field.", nameof(field))
+        };
+
+        var body = new
+        {
+            model = _options.Model,
+            messages = new[]
+            {
+                new
+                {
+                    role = "system",
+                    content = $"""
+                        You are editing one user-supplied field for a civil plaint.
+                        {fieldInstructions}
+                        Correct grammar and improve logical flow without changing the meaning.
+                        Do not add, infer, or remove facts, names, dates, amounts, property identifiers, requested reliefs, legal conclusions, statutes, or citations.
+                        Preserve the language of the input. Do not translate it.
+                        Return only the refined field text, with no heading, explanation, markdown, or quotation marks.
+                        """
+                },
+                new { role = "user", content = text }
+            },
+            temperature = 0.1,
+            max_tokens = 4096
+        };
+
+        var json = JsonSerializer.Serialize(body, JsonOpts);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var response = await _http.PostAsync("chat/completions", content, ct);
+        var responseText = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException(
+                $"Civil plaint text refinement failed (HTTP {(int)response.StatusCode}): {responseText}",
+                null,
+                response.StatusCode);
+        }
+
+        using var document = JsonDocument.Parse(responseText);
+        var choice = document.RootElement.GetProperty("choices")[0];
+        if (choice.TryGetProperty("finish_reason", out var finishReason) &&
+            finishReason.GetString() == "length")
+        {
+            throw new InvalidOperationException(
+                "The AI response was truncated. Reduce the field text and try again.");
+        }
+
+        var refinedText = choice.GetProperty("message").GetProperty("content").GetString();
+        if (string.IsNullOrWhiteSpace(refinedText))
+            throw new InvalidOperationException("The AI returned an empty refinement.");
+
+        return refinedText.Trim();
+    }
+
     private async Task<string> TranslateChunkToHindiAsync(string text, CancellationToken ct)
     {
         var body = new
@@ -192,26 +267,32 @@ public class GroqDraftService : IGroqDraftService
         }
     }
 
-    private static string BuildSystemPrompt(string documentType, string jurisdiction)
+    internal static string BuildSystemPrompt(
+        string documentType,
+        string jurisdiction,
+        string outputLanguage)
     {
         return $"""
             You are an expert Indian advocate drafting court-ready legal documents.
             Jurisdiction: {jurisdiction}.
             Document type: {documentType}.
+            Output language: {outputLanguage}.
 
             Output MUST be a single valid JSON object only. No markdown, no explanation, no extra text.
 
             Follow these strict rules:
             1. Use formal legal language appropriate for Indian courts.
-            2. Include all standard sections for this document type.
-            3. Leave fields that cannot be filled from the provided facts as null.
-            4. Never invent case numbers, dates, or party names that are not in the facts.
-            5. Cite BNS / BNSS / relevant statutes only when the facts support it.
-            6. Structure the JSON exactly as shown in the user message example.
+            2. Write all human-readable document content in the requested output language. For Hindi, use clear formal Hindi in Devanagari; preserve proper names, addresses, identifiers, and statutory citations in their original form where appropriate.
+            3. Keep JSON property names exactly as shown in the schema, regardless of output language.
+            4. Include all standard sections for this document type.
+            5. Leave fields that cannot be filled from the provided facts as null.
+            6. Never invent case numbers, dates, or party names that are not in the facts.
+            7. Cite BNS / BNSS / relevant statutes only when the facts support it.
+            8. Structure the JSON exactly as shown in the user message example.
             """;
     }
 
-    private static string BuildUserPrompt(DraftRequest request)
+    internal static string BuildUserPrompt(DraftRequest request)
     {
         var schemaExample = request.DocumentType switch
         {
@@ -590,6 +671,8 @@ public class GroqDraftService : IGroqDraftService
             {extra}
             {extraGuidance}
             {documentGuidance}
+
+            Output-language requirement: Write every human-readable string value in {request.OutputLanguage}. When Hindi is requested, use formal Hindi in Devanagari. Keep all JSON property names exactly as shown in the schema.
 
             Produce a complete {request.DocumentType} as JSON matching this exact structure:
             {schemaExample}

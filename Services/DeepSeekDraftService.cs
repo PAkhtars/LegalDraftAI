@@ -43,7 +43,10 @@ public class DeepSeekDraftService : IDeepSeekDraftService
             };
         }
 
-        var systemPrompt = BuildSystemPrompt(request.DocumentType, request.Jurisdiction);
+        var systemPrompt = BuildSystemPrompt(
+            request.DocumentType,
+            request.Jurisdiction,
+            request.OutputLanguage);
         var userPrompt = BuildUserPrompt(request);
 
         var body = new
@@ -110,22 +113,28 @@ public class DeepSeekDraftService : IDeepSeekDraftService
         }
     }
 
-    private static string BuildSystemPrompt(string documentType, string jurisdiction)
+    private static string BuildSystemPrompt(
+        string documentType,
+        string jurisdiction,
+        string outputLanguage)
     {
         return $"""
             You are an expert Indian advocate drafting court-ready legal documents.
             Jurisdiction: {jurisdiction}.
             Document type: {documentType}.
+            Output language: {outputLanguage}.
 
             Output MUST be a single valid JSON object only. No markdown, no explanation, no extra text.
 
             Follow these strict rules:
             1. Use formal legal language appropriate for Indian courts.
-            2. Include all standard sections for this document type.
-            3. Leave fields that cannot be filled from the provided facts as null.
-            4. Never invent case numbers, dates, or party names that are not in the facts.
-            5. Cite BNS / BNSS / relevant statutes only when the facts support it.
-            6. Structure the JSON exactly as shown in the user message example.
+            2. Write all human-readable document content in the requested output language. For Hindi, use clear formal Hindi in Devanagari; preserve proper names, addresses, identifiers, and statutory citations in their original form where appropriate.
+            3. Keep JSON property names exactly as shown in the schema, regardless of output language.
+            4. Include all standard sections for this document type.
+            5. Leave fields that cannot be filled from the provided facts as null.
+            6. Never invent case numbers, dates, or party names that are not in the facts.
+            7. Cite BNS / BNSS / relevant statutes only when the facts support it.
+            8. Structure the JSON exactly as shown in the user message example.
             """;
     }
 
@@ -386,6 +395,8 @@ public class DeepSeekDraftService : IDeepSeekDraftService
             {extra}
             {extraGuidance}
             {documentGuidance}
+
+            Output-language requirement: Write every human-readable string value in {request.OutputLanguage}. When Hindi is requested, use formal Hindi in Devanagari. Keep all JSON property names exactly as shown in the schema.
 
             Produce a complete {request.DocumentType} as JSON matching this exact structure:
             {schemaExample}

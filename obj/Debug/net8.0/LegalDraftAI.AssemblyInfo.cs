@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LegalDraftAI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7961a20c7eb99a7300653bf90e2c62c2f99519f4")]
 [assembly: System.Reflection.AssemblyProductAttribute("LegalDraftAI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LegalDraftAI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
