@@ -63,6 +63,39 @@ public class CasesController : ControllerBase
         return saved is null ? NotFound() : Ok(saved);
     }
 
+    /// <summary>Save one Civil Plaint section without replacing the other sections.</summary>
+    [HttpPut("{caseId:guid}/civil-plaint-details/{section}")]
+    public async Task<ActionResult<CaseDetailDto>> SaveCivilPlaintSection(
+        Guid caseId,
+        string section,
+        [FromBody] CivilPlaintDetailsDto details,
+        CancellationToken ct)
+    {
+        var supportedSections = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "court-and-suit",
+            "suit-property",
+            "facts-and-relief",
+            "filing-details"
+        };
+        if (!supportedSections.Contains(section))
+            return BadRequest(new { error = "Select a valid Civil Plaint section to save." });
+
+        var missingSectionData = section.ToLowerInvariant() switch
+        {
+            "court-and-suit" => details.CourtAndSuit is null,
+            "suit-property" => details.SuitProperty is null,
+            "facts-and-relief" => details.FactsAndRelief is null,
+            "filing-details" => details.FilingDetails is null,
+            _ => true
+        };
+        if (missingSectionData)
+            return BadRequest(new { error = "The selected Civil Plaint section data is required." });
+
+        var saved = await _cases.SaveCivilPlaintSectionAsync(caseId, section, details, ct);
+        return saved is null ? NotFound() : Ok(saved);
+    }
+
     /// <summary>Upload a supporting document and extract text.</summary>
     [HttpPost("{caseId:guid}/documents")]
     [RequestSizeLimit(50 * 1024 * 1024)]

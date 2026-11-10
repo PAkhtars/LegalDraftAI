@@ -130,11 +130,32 @@ public static class PlaintDocumentCatalog
         Nature("ProbateWillChallengeRevocation", "Challenge / Revocation of Probate or Will", "4. Testamentary & Probate Suits", "Proceeding challenging a will or seeking revocation of a probate grant."),
         Nature("SuitAgainstGovernmentPublicOfficer", "Suit against Public Officers / Government (Sec 80 CPC Notice-backed suits)", "5. Miscellaneous & Constitutional Civil Suits", "Civil suit against the Government or a public officer, including applicable notice requirements."),
         Nature("RepresentativeSuitPIL", "Representative Suit / Public Interest Litigation (Order 1 Rule 8 CPC)", "5. Miscellaneous & Constitutional Civil Suits", "Representative civil proceeding or public interest matter, subject to applicable jurisdiction and procedure."),
-        Nature("WritCivilRevisionReview", "Writs / Civil Revision / Review Petitions", "5. Miscellaneous & Constitutional Civil Suits", "Constitutional or supervisory petition, civil revision, or review proceeding before the competent forum.")
+        Nature("WritCivilRevisionReview", "Writs / Civil Revision / Review Petitions", "5. Miscellaneous & Constitutional Civil Suits", "Constitutional or supervisory petition, civil revision, or review proceeding before the competent forum."),
+        new()
+        {
+            Code = "BailApplication",
+            Label = "Bail application",
+            Category = "Criminal",
+            PlaintGroup = "Bail and custody",
+            Description = "Supporting records commonly reviewed when preparing a bail application. Requirements vary by case and jurisdiction.",
+            SuggestedDocumentType = "BailApplication"
+        }
     };
 
     private static readonly Dictionary<string, List<RequiredDocumentItem>> DocsByNature = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["BailApplication"] = new()
+        {
+            Doc("FIR_OR_COMPLAINT", "FIR or complaint", "Critical", "Identify the allegations and sections involved", true),
+            Doc("ARREST_OR_CUSTODY_RECORD", "Arrest memo, surrender record, or custody status", "Critical", "Confirm arrest and custody details", true),
+            Doc("REMAND_ORDERS", "Remand and previous bail orders", "Critical", "Show the current procedural and custody status", true),
+            Doc("CASE_DETAILS", "Case number, police station, district, and applicable sections", "Critical", "Prepare accurate case particulars", true),
+            Doc("APPLICANT_ID_ADDRESS", "Applicant identity and address proof", "High", "Support identity and residence particulars", false),
+            Doc("MEDICAL_OR_SPECIAL_CIRCUMSTANCES", "Medical records or other special-circumstance records, if relevant", "High", "Support any specifically pleaded circumstance", false),
+            Doc("CRIMINAL_ANTECEDENTS", "Records or details of prior cases and their outcomes", "High", "Disclose relevant antecedent information", false),
+            Doc("SURETY_DOCUMENTS", "Proposed surety identity and solvency/address records, if available", "Medium", "Prepare for possible bail conditions", false),
+            Doc("VAKALATNAMA", "Signed vakalatnama or authority to appear", "Critical", "Establish authority to appear", true)
+        },
         ["AncestralLandPossession"] = new()
         {
             Doc("ID_PROOF", "Aadhaar / PAN / identity proof", "Critical", "Plaintiff identity & KYC", true),
@@ -317,6 +338,9 @@ public static class PlaintDocumentCatalog
             return null;
 
         var t = facts.ToLowerInvariant();
+
+        if (t.Contains("bail") || t.Contains("anticipatory bail") || t.Contains("regular bail"))
+            return "BailApplication";
 
         if (t.Contains("ancestral") || (t.Contains("illegal possession") && t.Contains("land")) ||
             (t.Contains("possession") && t.Contains("ancestor")))

@@ -36,6 +36,14 @@
     {
         <div class="notice notice-warning" role="status">@Model.ApiStatusMessage</div>
     }
+    @if (!string.IsNullOrWhiteSpace(Model.SectionSaveStatusMessage))
+    {
+        <div class="upload-success" role="status">@Model.SectionSaveStatusMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.SectionSaveErrorMessage))
+    {
+        <div class="result-error" role="alert">@Model.SectionSaveErrorMessage</div>
+    }
 
     <div class="workspace">
     <aside class="voice-assistant" data-voice-assistant data-expanded="false" aria-labelledby="voice-assistant-title">
@@ -248,7 +256,7 @@
             </div>
             <div class="form-actions">
                 <p>Step 1 of 3 · Identify the matter</p>
-                <button type="submit" class="generate-button" formaction="?handler=Research" formnovalidate>
+                <button type="submit" class="generate-button" data-request-progress="research" formaction="?handler=Research" formnovalidate>
                     Research documents <span aria-hidden="true">→</span>
                 </button>
             </div>
@@ -459,6 +467,11 @@
                     <span asp-validation-for="Input.DefendantAddress" class="field-error"></span>
                 </div>
             </div>
+            <div class="form-actions">
+                <button type="submit" class="secondary-button" name="section" value="court-and-suit" formaction="?handler=SaveSection" formnovalidate>
+                    Save court and suit
+                </button>
+            </div>
         </details>
 
         <details class="form-section civil-plaint-collapsible-section" open>
@@ -499,6 +512,11 @@
                     <input asp-for="Input.Valuation" class="form-control" placeholder="As assessed for the applicable court fee" />
                 </div>
             </div>
+            <div class="form-actions">
+                <button type="submit" class="secondary-button" name="section" value="suit-property" formaction="?handler=SaveSection" formnovalidate>
+                    Save suit property
+                </button>
+            </div>
         </details>
 
         <details class="form-section civil-plaint-collapsible-section" open>
@@ -522,6 +540,11 @@
             <div class="field field-spaced">
                 <label asp-for="Input.Prayer">Prayer <span class="optional-tag">Optional</span></label>
                 <textarea asp-for="Input.Prayer" class="form-control" rows="3" data-ai-refine-field="prayer"></textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="secondary-button" name="section" value="facts-and-relief" formaction="?handler=SaveSection" formnovalidate>
+                    Save facts and relief
+                </button>
             </div>
         </details>
 
@@ -550,6 +573,11 @@
                     <label asp-for="Input.AdvocateEnrollmentNo">Enrollment number</label>
                     <input asp-for="Input.AdvocateEnrollmentNo" class="form-control" />
                 </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="secondary-button" name="section" value="filing-details" formaction="?handler=SaveSection" formnovalidate>
+                    Save filing details
+                </button>
             </div>
         </details>
 
@@ -600,12 +628,20 @@
                 Save these sections in separate SQL tables for reloading later
             </label>
             <p class="field-hint">Generated drafts are stored with the case. This option also saves the form sections separately so they can be restored when reopening it.</p>
-            <button type="submit" class="generate-button" disabled="@(!Model.ResearchResult.CanFileWithMinimumSet)">
+            <button type="submit" class="generate-button" data-request-progress="generate" disabled="@(!Model.ResearchResult.CanFileWithMinimumSet)">
                 Generate plaint <span aria-hidden="true">→</span>
             </button>
         </div>
         }
     </form>
+
+    <div class="request-progress-overlay" data-request-progress-overlay hidden role="status" aria-live="assertive" aria-modal="true">
+        <div class="request-progress-card">
+            <span class="request-progress-spinner" aria-hidden="true"></span>
+            <p class="request-progress-title" data-request-progress-title>Researching required documents…</p>
+            <p class="request-progress-detail" data-request-progress-detail>Please wait while the server processes your request.</p>
+        </div>
+    </div>
 
     @if (Model.ApiErrorMessage is not null || Model.Input.GeneratedDraftJson is not null)
     {
@@ -750,11 +786,58 @@
                 "Select the plaint nature or describe the dispute so we can identify the supporting documents.": "वाद का प्रकार चुनें या विवाद का वर्णन करें, ताकि आवश्यक सहायक दस्तावेज़ पहचाने जा सकें।",
                 "Nature of plaint": "वाद का प्रकार",
                 "Illegal possession of ancestral land": "पैतृक भूमि पर अवैध कब्ज़ा",
-                "Declaration of title to property": "संपत्ति के स्वामित्व की घोषणा",
-                "Permanent injunction (property interference)": "स्थायी निषेधाज्ञा (संपत्ति में हस्तक्षेप)",
-                "Recovery of money": "धन की वसूली",
-                "Specific performance of contract": "संविदा का विशिष्ट पालन",
-                "Partition of joint / ancestral property": "संयुक्त / पैतृक संपत्ति का विभाजन",
+                "Suit for Declaration of Title / Ownership (Sec 34, Specific Relief Act)": "स्वत्व / स्वामित्व की घोषणा हेतु वाद (विशिष्ट राहत अधिनियम की धारा 34)",
+                "Suit for Possession / Eviction & Mesne Profits": "कब्ज़ा / बेदखली और मध्यवर्ती लाभ के लिए वाद",
+                "Suit for Partition & Separate Possession of Ancestral / Joint Property": "पैतृक / संयुक्त संपत्ति के विभाजन और अलग कब्ज़े हेतु वाद",
+                "Suit for Injunction (Permanent / Mandatory / Temporary)": "निषेधाज्ञा हेतु वाद (स्थायी / अनिवार्य / अस्थायी)",
+                "Suit for Easementary Rights (Right of Way, Light, Air)": "सुखाधिकारों (रास्ते, प्रकाश, वायु का अधिकार) हेतु वाद",
+                "Suit for Recovery of Money / Debt": "धन / ऋण की वसूली हेतु वाद",
+                "Summary Suit under Order 37 CPC (Negotiable instruments, written contracts)": "सीपीसी के आदेश 37 के अंतर्गत संक्षिप्त वाद (परक्राम्य लिखत, लिखित संविदाएँ)",
+                "Suit for Specific Performance of Contract": "संविदा के विशिष्ट पालन हेतु वाद",
+                "Cancellation / Rescission of Instruments / Sale Deeds": "लिखतों / विक्रय विलेखों के निरस्तीकरण / विखंडन हेतु वाद",
+                "Commercial Disputes under the Commercial Courts Act": "वाणिज्यिक न्यायालय अधिनियम के अंतर्गत वाणिज्यिक विवाद",
+                "Partnership Disputes & Dissolution of Firm / Accounts": "साझेदारी विवाद और फर्म का विघटन / हिसाब-किताब",
+                "Intellectual Property Infringement (Trademark, Copyright, Patent Suits)": "बौद्धिक संपदा उल्लंघन (ट्रेडमार्क, कॉपीराइट, पेटेंट वाद)",
+                "Banking & Mortgage Suits (Foreclosure / Redemption)": "बैंकिंग और बंधक वाद (बंधक-समापन / मोचन)",
+                "Petition for Dissolution of Marriage (Divorce)": "विवाह-विच्छेद (तलाक) की याचिका",
+                "Petition for Judicial Separation": "न्यायिक पृथक्करण की याचिका",
+                "Petition for Restitution of Conjugal Rights": "दाम्पत्य अधिकारों की पुनर्स्थापना की याचिका",
+                "Suit / Petition for Declaration of Nullity of Marriage (Void / Voidable)": "विवाह को शून्य / शून्यकरणीय घोषित करने हेतु वाद / याचिका",
+                "Claim for Spousal Maintenance / Alimony": "जीवनसाथी के भरण-पोषण / स्थायी गुज़ारा भत्ते का दावा",
+                "Application for Interim Maintenance & Litigation Expenses": "अंतरिम भरण-पोषण और मुकदमे के खर्च हेतु आवेदन",
+                "Claim for Child Maintenance": "बच्चे के भरण-पोषण का दावा",
+                "Petition for Child Custody & Visitation Rights": "बच्चे की अभिरक्षा और मुलाक़ात के अधिकारों हेतु याचिका",
+                "Guardianship Application under the Guardians and Wards Act": "अभिभावक और प्रतिपाल्य अधिनियम के अंतर्गत अभिभावकता आवेदन",
+                "Claim for Return of Stridhan / Personal Belongings": "स्त्रीधन / निजी सामान की वापसी का दावा",
+                "Family Settlement & Partition of Matrimonial Assets": "पारिवारिक समझौता और वैवाहिक संपत्तियों का विभाजन",
+                "Suit for Damages for Defamation (Libel / Slander)": "मानहानि (लिखित / मौखिक) के लिए क्षतिपूर्ति का वाद",
+                "Suit for Damages for Malicious Prosecution": "दुर्भावनापूर्ण अभियोजन के लिए क्षतिपूर्ति का वाद",
+                "Action for Breach of Privacy": "निजता के उल्लंघन हेतु कार्रवाई",
+                "Action for Medical Negligence / Professional Malpractice": "चिकित्सीय लापरवाही / पेशेवर कदाचार हेतु कार्रवाई",
+                "Motor Accident Claims (Torts / Compensation)": "मोटर दुर्घटना दावे (अपकृत्य / क्षतिपूर्ति)",
+                "Occupier's Liability & Workplace Hazards": "अधिभोगी का दायित्व और कार्यस्थल के जोखिम",
+                "Suit for Private / Public Nuisance": "निजी / सार्वजनिक उपद्रव हेतु वाद",
+                "Suit for Trespass to Land / Property": "भूमि / संपत्ति पर अतिचार हेतु वाद",
+                "Suit for Trespass to Goods / Conversion of Goods": "माल पर अतिचार / माल के व्यपवर्तन हेतु वाद",
+                "Application for Grant of Probate of Will": "वसीयत की प्रोबेट मंज़ूर करने हेतु आवेदन",
+                "Petition for Letters of Administration": "प्रशासन-पत्र जारी करने हेतु याचिका",
+                "Application for Succession Certificate": "उत्तराधिकार प्रमाणपत्र हेतु आवेदन",
+                "Challenge / Revocation of Probate or Will": "प्रोबेट या वसीयत को चुनौती / निरस्त करने हेतु आवेदन",
+                "Suit against Public Officers / Government (Sec 80 CPC Notice-backed suits)": "लोक अधिकारियों / सरकार के विरुद्ध वाद (सीपीसी धारा 80 के नोटिस सहित)",
+                "Representative Suit / Public Interest Litigation (Order 1 Rule 8 CPC)": "प्रतिनिधि वाद / जनहित याचिका (सीपीसी आदेश 1 नियम 8)",
+                "Writs / Civil Revision / Review Petitions": "रिट / दीवानी पुनरीक्षण / पुनर्विलोकन याचिकाएँ",
+                "1.1 Real Estate & Immovable Property": "1.1 अचल संपत्ति और स्थावर संपत्ति",
+                "1.2 Contractual & Money Matters": "1.2 संविदात्मक और धन संबंधी मामले",
+                "1.3 Commercial & Financial Matters": "1.3 वाणिज्यिक और वित्तीय मामले",
+                "2.1 Marital Status & Reliefs": "2.1 वैवाहिक स्थिति और राहतें",
+                "2.2 Maintenance & Financial Support": "2.2 भरण-पोषण और वित्तीय सहायता",
+                "2.3 Custody & Guardianship": "2.3 अभिरक्षा और अभिभावकता",
+                "2.4 Property & Family Claims": "2.4 संपत्ति और पारिवारिक दावे",
+                "3.1 Reputation & Personal Rights": "3.1 प्रतिष्ठा और व्यक्तिगत अधिकार",
+                "3.2 Negligence & Bodily Injury": "3.2 लापरवाही और शारीरिक चोट",
+                "3.3 Nuisance & Trespass": "3.3 उपद्रव और अतिचार",
+                "4. Testamentary & Probate Suits": "4. वसीयती और प्रोबेट वाद",
+                "5. Miscellaneous & Constitutional Civil Suits": "5. विविध और संवैधानिक दीवानी वाद",
                 "Optional if facts are provided": "तथ्य देने पर वैकल्पिक",
                 "Select suit type": "वाद का प्रकार चुनें",
                 "State / jurisdiction": "राज्य / अधिकार-क्षेत्र",
@@ -897,8 +980,8 @@
                     textNode.nodeValue = `${leading}${translated}${trailing}`;
                 }
 
-                languageScope.querySelectorAll("[placeholder], [aria-label]").forEach((element) => {
-                    ["placeholder", "aria-label"].forEach((attribute) => {
+                languageScope.querySelectorAll("[placeholder], [aria-label], optgroup[label]").forEach((element) => {
+                    ["placeholder", "aria-label", "label"].forEach((attribute) => {
                         if (!element.hasAttribute(attribute)) return;
                         let originals = attributeOriginals.get(element);
                         if (!originals) {
@@ -1008,6 +1091,35 @@
         }
 
         })();
+        </script>
+        <script>
+            (() => {
+                const form = document.getElementById("civil-plaint-form");
+                const overlay = document.querySelector("[data-request-progress-overlay]");
+                const title = document.querySelector("[data-request-progress-title]");
+                const detail = document.querySelector("[data-request-progress-detail]");
+                if (!form || !overlay || !title || !detail) return;
+
+                form.addEventListener("submit", (event) => {
+                    const submitter = event.submitter;
+                    const action = submitter?.dataset.requestProgress;
+                    if (action !== "research" && action !== "generate") return;
+
+                    const isHindi = document.querySelector("[data-page-language-input]")?.value === "hi";
+                    title.textContent = action === "research"
+                        ? isHindi ? "आवश्यक दस्तावेज़ों पर शोध किया जा रहा है…" : "Researching required documents…"
+                        : isHindi ? "वादपत्र तैयार किया जा रहा है…" : "Generating your plaint…";
+                    detail.textContent = isHindi
+                        ? "कृपया प्रतीक्षा करें, सर्वर आपके अनुरोध को संसाधित कर रहा है।"
+                        : "Please wait while the server processes your request.";
+                    overlay.hidden = false;
+                    document.body.classList.add("request-progress-active");
+                    if (submitter) {
+                        submitter.disabled = true;
+                        submitter.setAttribute("aria-busy", "true");
+                    }
+                });
+            })();
         </script>
         <script src="~/js/civil-plaint-refinement.js" asp-append-version="true"></script>
         <script src="~/js/civil-plaint-voice.js" asp-append-version="true"></script>

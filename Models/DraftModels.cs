@@ -126,12 +126,16 @@ public class BailApplicationDraft
     public string CourtName { get; set; } = "";
     public string CaseTitle { get; set; } = "";
     public string CaseNumber { get; set; } = "";
+    public string BailType { get; set; } = "";
     public string ApplicantName { get; set; } = "";
+    public string? ApplicantAddress { get; set; }
     public string RespondentName { get; set; } = "";
     public string? FirNumber { get; set; }
     public string? PoliceStation { get; set; }   // Thana
     public string? District { get; set; }
     public List<string> Sections { get; set; } = new();  // e.g. BNS / BNSS sections
+    public List<string> FactualBackground { get; set; } = new();
+    public string? CustodyStatus { get; set; }
     public List<string> Grounds { get; set; } = new();
     public string Prayer { get; set; } = "";
     public string Place { get; set; } = "";

@@ -52,6 +52,9 @@ public class PdfExportService : IPdfExportService
                         text.Span(d.ApplicantName);
                     });
 
+                    if (!string.IsNullOrWhiteSpace(d.ApplicantAddress))
+                        col.Item().Text($"Address: {d.ApplicantAddress}");
+
                     col.Item().Text(text =>
                     {
                         text.Span("Respondent: ").Bold();
@@ -95,7 +98,22 @@ public class PdfExportService : IPdfExportService
                         });
                     }
 
-                    col.Item().PaddingTop(8).Text("APPLICATION FOR GRANT OF BAIL")
+                    if (!string.IsNullOrWhiteSpace(d.BailType))
+                        col.Item().Text($"Application type: {d.BailType}");
+
+                    if (d.FactualBackground.Count > 0 || !string.IsNullOrWhiteSpace(d.CustodyStatus))
+                    {
+                        col.Item().PaddingTop(8).Text("FACTUAL BACKGROUND AND CUSTODY STATUS")
+                            .Bold().FontSize(12);
+                        for (var index = 0; index < d.FactualBackground.Count; index++)
+                            col.Item().PaddingLeft(15).Text($"{index + 1}. {d.FactualBackground[index]}");
+                        if (!string.IsNullOrWhiteSpace(d.CustodyStatus))
+                            col.Item().Text($"Arrest / custody status: {d.CustodyStatus}");
+                    }
+
+                    col.Item().PaddingTop(8).Text(string.IsNullOrWhiteSpace(d.BailType)
+                            ? "APPLICATION FOR GRANT OF BAIL"
+                            : $"APPLICATION FOR {d.BailType.ToUpperInvariant()}")
                         .Bold().FontSize(12).AlignCenter();
 
                     col.Item().PaddingTop(10).Text("Most Respectfully Showeth:").Bold();

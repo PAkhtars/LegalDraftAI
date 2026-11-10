@@ -18,6 +18,8 @@ public sealed class CivilPlaintModel(
     private const string UploadedNatureSessionKey = "CivilPlaint.UploadedNature";
     private const string CaseIdSessionKey = "CivilPlaint.CaseId";
     private const string HindiCaseFieldTranslationsSessionKey = "CivilPlaint.HindiCaseFieldTranslations";
+    private const string PendingFactsSessionKey = "CivilPlaint.PendingFacts";
+    private const string PendingJurisdictionSessionKey = "CivilPlaint.PendingJurisdiction";
 
     private static readonly Regex NumberedParagraphPrefixRegex = new(
         @"^(?:\s*(?:\d+(?:\.\d+)+|[०-९]+(?:\.[०-९]+)+|\d+[.)]|[०-९]+[.)])\s*)+",
@@ -37,6 +39,8 @@ public sealed class CivilPlaintModel(
     public IReadOnlyList<UploadedDocumentRecord> UploadedDocuments { get; private set; } = [];
     public string? ApiStatusMessage { get; private set; }
     public string? ApiErrorMessage { get; private set; }
+    public string? SectionSaveStatusMessage { get; private set; }
+    public string? SectionSaveErrorMessage { get; private set; }
     public string? UploadStatusMessage { get; private set; }
     public string? GeneratedDraftPreviewText { get; private set; }
     public IReadOnlyList<DraftFieldOption> GeneratedDraftFields { get; private set; } = [];
@@ -76,6 +80,25 @@ public sealed class CivilPlaintModel(
             StringComparison.OrdinalIgnoreCase)
             ? "hi"
             : "en";
+
+        await HttpContext.Session.LoadAsync(cancellationToken);
+        var pendingFacts = HttpContext.Session.GetString(PendingFactsSessionKey);
+        if (pendingFacts is not null)
+        {
+            Input.Facts = pendingFacts;
+            var pendingJurisdiction = HttpContext.Session.GetString(PendingJurisdictionSessionKey);
+            if (!string.IsNullOrWhiteSpace(pendingJurisdiction))
+                Input.Jurisdiction = pendingJurisdiction;
+
+            HttpContext.Session.Remove(PendingFactsSessionKey);
+            HttpContext.Session.Remove(PendingJurisdictionSessionKey);
+            HttpContext.Session.Remove(CaseIdSessionKey);
+            HttpContext.Session.Remove(UploadedDocumentsSessionKey);
+            HttpContext.Session.Remove(UploadedNatureSessionKey);
+            HttpContext.Session.Remove(HindiCaseFieldTranslationsSessionKey);
+            await HttpContext.Session.CommitAsync(cancellationToken);
+        }
+
         await LoadPlaintNaturesAsync(cancellationToken);
         await LoadExistingCasesAsync(cancellationToken);
         var caseId = await GetCurrentCaseIdAsync();
@@ -223,6 +246,130 @@ public sealed class CivilPlaintModel(
         {
             logger.LogError(exception, "Could not reach the LegalDraftAI API for civil plaint generation.");
             ApiErrorMessage = "Could not reach the LegalDraftAI API. Check that it is running and that DraftsApi:BaseUrl is correct.";
+        }
+
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostSaveSectionAsync(
+        string section,
+        CancellationToken cancellationToken)
+    {
+        ModelState.Clear();
+        var sectionLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["court-and-suit"] = "Court and suit",
+            ["suit-property"] = "Suit property",
+            ["facts-and-relief"] = "Facts and relief",
+            ["filing-details"] = "Filing details"
+        };
+        if (!sectionLabels.TryGetValue(section, out var sectionLabel))
+        {
+            SectionSaveErrorMessage = "Select a valid Civil Plaint section to save.";
+            await LoadPlaintNaturesAsync(cancellationToken);
+            await LoadExistingCasesAsync(cancellationToken);
+            await RunResearchAsync(cancellationToken);
+            return Page();
+        }
+
+        await LoadPlaintNaturesAsync(cancellationToken);
+        await LoadExistingCasesAsync(cancellationToken);
+        var caseId = SelectedCaseId;
+        if (caseId is null)
+        {
+            try
+            {
+                using var createResponse = await _apiClient.PostAsJsonAsync(
+                    "api/cases",
+                    new
+                    {
+                        title = Input.CaseTitle,
+                        caseCategory = "Civil",
+                        plaintNature = Input.PlaintNature,
+                        jurisdiction = Input.Jurisdiction,
+                        courtName = Input.CourtName,
+                        caseNumber = Input.CaseNumber,
+                        plaintiffName = Input.PlaintiffName,
+                        plaintiffAddress = Input.PlaintiffAddress,
+                        defendantName = Input.DefendantName,
+                        defendantAddress = Input.DefendantAddress,
+                        clientFacts = BuildClientFacts()
+                    },
+                    cancellationToken);
+                var createBody = await createResponse.Content.ReadAsStringAsync(cancellationToken);
+                if (!createResponse.IsSuccessStatusCode)
+                {
+                    SectionSaveErrorMessage = GetApiErrorMessage(
+                        createBody,
+                        $"Could not create a case for saving (HTTP {(int)createResponse.StatusCode}).");
+                    await RunResearchAsync(cancellationToken);
+                    return Page();
+                }
+
+                using var createdCase = JsonDocument.Parse(createBody);
+                if (!createdCase.RootElement.TryGetProperty("id", out var createdId) ||
+                    !createdId.TryGetGuid(out var parsedCaseId))
+                {
+                    SectionSaveErrorMessage = "The API did not return the new case ID.";
+                    await RunResearchAsync(cancellationToken);
+                    return Page();
+                }
+
+                caseId = parsedCaseId;
+            }
+            catch (HttpRequestException exception)
+            {
+                logger.LogError(exception, "Could not create a Civil case for section saving.");
+                SectionSaveErrorMessage = "Could not reach the API to create a case for saving.";
+                await RunResearchAsync(cancellationToken);
+                return Page();
+            }
+            catch (JsonException exception)
+            {
+                logger.LogError(exception, "Civil case creation returned invalid JSON.");
+                SectionSaveErrorMessage = "The API returned invalid case details while saving.";
+                await RunResearchAsync(cancellationToken);
+                return Page();
+            }
+        }
+
+        try
+        {
+            var translatedCaseFields = string.Equals(SelectedLanguage, "hi", StringComparison.OrdinalIgnoreCase)
+                ? await LoadHindiCaseFieldTranslationsAsync(cancellationToken)
+                : null;
+            using var response = await _apiClient.PutAsJsonAsync(
+                $"api/cases/{caseId}/civil-plaint-details/{section}",
+                BuildSavedPlaintDetails(Input, translatedCaseFields),
+                cancellationToken);
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                SectionSaveErrorMessage = GetApiErrorMessage(
+                    responseBody,
+                    $"Could not save {sectionLabel} (HTTP {(int)response.StatusCode}).");
+                await RunResearchAsync(cancellationToken);
+                return Page();
+            }
+
+            SelectedCaseId = caseId;
+            await SaveUploadedDocumentsAsync(caseId);
+            await LoadExistingCasesAsync(cancellationToken);
+            await LoadSelectedCaseAsync(caseId.Value, populateInput: false, cancellationToken);
+            SectionSaveStatusMessage = $"{sectionLabel} saved to this case.";
+            await RunResearchAsync(cancellationToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            logger.LogError(exception, "Could not save Civil Plaint section {Section}.", section);
+            SectionSaveErrorMessage = "Could not reach the API to save this section.";
+            await RunResearchAsync(cancellationToken);
+        }
+        catch (JsonException exception)
+        {
+            logger.LogError(exception, "Civil Plaint section save returned invalid JSON.");
+            SectionSaveErrorMessage = "The API returned invalid data while saving this section.";
+            await RunResearchAsync(cancellationToken);
         }
 
         return Page();

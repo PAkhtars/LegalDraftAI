@@ -75,7 +75,16 @@ public class DocumentResearchService : IDocumentResearchService
         var canFile = missingMandatory.Count == 0;
 
         var nextSteps = new List<string>();
-        if (!canFile)
+        if (natureInfo.Category.Equals("Criminal", StringComparison.OrdinalIgnoreCase))
+        {
+            nextSteps.Add(canFile
+                ? "The checklist minimum is complete. Confirm the applicable court requirements before filing."
+                : "Collect the listed critical supporting records and confirm any additional court requirements.");
+            if (missingRecommended.Count > 0)
+                nextSteps.Add("Review the recommended records and include those relevant to the case.");
+            nextSteps.Add("Verify all case facts, custody details, and applicable bail procedure with counsel.");
+        }
+        else if (!canFile)
         {
             nextSteps.Add("Collect all Critical / mandatory documents before filing.");
             foreach (var code in missingMandatory)

@@ -50,6 +50,8 @@
             ready: "Press Begin assistance to start. You can answer by voice or type.",
             unsupported: "Speech recognition is not available in this browser. You can still use the assistant by typing answers.",
             listening: "Listening… I’ll wait until 10 seconds after your last words before saving the answer.",
+            awaitingCountdown: "Listening for your answer — {seconds}s remaining.",
+            pauseCountdown: "Answer detected. Accepting after your pause — {seconds}s remaining.",
             dictationWaiting: "Your words appear below as you speak. Review them and select Review & apply when ready, or keep speaking.",
             responseTimeout: "I didn’t hear a response for 10 seconds. Your question is still here; press Listen to try again or type your answer.",
             emptyResponseRetry: "I didn’t catch a response. I’ll repeat this question in 5 seconds (attempt {attempt} of 3).",
@@ -62,6 +64,8 @@
             saved: "Answer added to the form.",
             fieldVoice: "Speak to add / edit",
             fieldListening: "Listening… I’ll wait until 10 seconds after your last words before saving this field.",
+            fieldAwaitingCountdown: "Listening for your answer — {seconds}s remaining.",
+            fieldPauseCountdown: "Answer detected. Accepting after your pause — {seconds}s remaining.",
             fieldSaved: "Field updated. Check the value above.",
             fieldNoAnswer: "No answer heard. I’ll repeat this field question in 5 seconds (attempt {attempt} of 3).",
             fieldNoAnswerDone: "I couldn’t hear an answer after three attempts. This field was not changed; click its voice button to try again or edit it directly.",
@@ -128,6 +132,8 @@
             ready: "शुरू करने के लिए सहायता शुरू करें दबाएँ। आप बोलकर या लिखकर उत्तर दे सकते हैं।",
             unsupported: "इस ब्राउज़र में आवाज़ पहचान उपलब्ध नहीं है। आप उत्तर लिखकर सहायता का उपयोग कर सकते हैं।",
             listening: "सुन रहे हैं… आपके आख़िरी शब्दों के 10 सेकंड बाद ही उत्तर सुरक्षित होगा।",
+            awaitingCountdown: "आपका उत्तर सुन रहे हैं — {seconds} सेकंड शेष।",
+            pauseCountdown: "उत्तर मिल गया। आपके विराम के बाद स्वीकार होगा — {seconds} सेकंड शेष।",
             dictationWaiting: "आपके बोलते ही शब्द नीचे दिखाई देंगे। समीक्षा करके लागू करें दबाएँ या बोलना जारी रखें।",
             responseTimeout: "10 सेकंड तक कोई उत्तर सुनाई नहीं दिया। प्रश्न खुला है; फिर से सुनने के लिए सुनें दबाएँ या उत्तर लिखें।",
             emptyResponseRetry: "उत्तर सुनाई नहीं दिया। मैं 5 सेकंड बाद यह प्रश्न फिर से पूछूँगा (3 में से {attempt}वाँ प्रयास)।",
@@ -140,6 +146,8 @@
             saved: "उत्तर फ़ॉर्म में जोड़ दिया गया है।",
             fieldVoice: "बोलकर जोड़ें / बदलें",
             fieldListening: "सुन रहे हैं… आपके आख़िरी शब्दों के 10 सेकंड बाद ही यह फ़ील्ड सुरक्षित होगा।",
+            fieldAwaitingCountdown: "आपका उत्तर सुन रहे हैं — {seconds} सेकंड शेष।",
+            fieldPauseCountdown: "उत्तर मिल गया। आपके विराम के बाद स्वीकार होगा — {seconds} सेकंड शेष।",
             fieldSaved: "फ़ील्ड अपडेट हुआ। ऊपर दिया गया मान जाँचें।",
             fieldNoAnswer: "उत्तर सुनाई नहीं दिया। मैं 5 सेकंड बाद इस फ़ील्ड का प्रश्न फिर से पूछूँगा (3 में से {attempt}वाँ प्रयास)।",
             fieldNoAnswerDone: "तीन प्रयासों के बाद भी उत्तर सुनाई नहीं दिया। फ़ील्ड नहीं बदला गया; फिर कोशिश करने या सीधे संपादित करने के लिए उसका आवाज़ बटन दबाएँ।",
@@ -305,6 +313,7 @@
     let speechPending = false;
     let listeningDeadline = 0;
     let listeningTimeout = 0;
+    let countdownInterval = 0;
     let recognitionRestartTimeout = 0;
     let retryTimeout = 0;
     let pendingTranscript = "";
@@ -316,6 +325,7 @@
     let fieldVoiceButton = null;
     let fieldVoiceRetries = 0;
     let fieldVoiceWaitingForStop = false;
+    let voiceDetected = false;
     let pendingCode = readStored("pending-code") || "";
 
     function readStored(key) {
@@ -700,12 +710,15 @@
 
     function clearListeningWindow() {
         window.clearTimeout(listeningTimeout);
+        window.clearInterval(countdownInterval);
         window.clearTimeout(recognitionRestartTimeout);
         window.clearTimeout(retryTimeout);
         listeningTimeout = 0;
+        countdownInterval = 0;
         recognitionRestartTimeout = 0;
         retryTimeout = 0;
         listeningDeadline = 0;
+        voiceDetected = false;
         listenWhenReady = false;
     }
 
@@ -746,6 +759,23 @@
         window.clearTimeout(listeningTimeout);
         listeningDeadline = Date.now() + responseWaitMilliseconds;
         listeningTimeout = window.setTimeout(finishListeningAfterSilence, responseWaitMilliseconds);
+        updateVoiceCountdown();
+        if (!countdownInterval) {
+            countdownInterval = window.setInterval(updateVoiceCountdown, 250);
+        }
+    }
+
+    function updateVoiceCountdown() {
+        if (!listeningDeadline) return;
+        const remainingSeconds = Math.max(0, Math.ceil((listeningDeadline - Date.now()) / 1000));
+        const message = fieldVoiceTarget
+            ? voiceDetected
+                ? copy[language].fieldPauseCountdown
+                : copy[language].fieldAwaitingCountdown
+            : voiceDetected
+                ? copy[language].pauseCountdown
+                : copy[language].awaitingCountdown;
+        setVoiceStatus(message.replace("{seconds}", String(remainingSeconds)));
     }
 
     function appendTranscript(text) {
@@ -1163,16 +1193,33 @@
     }
 
     function finishFieldVoice(message) {
+        const completedElement = fieldVoiceTarget?.element;
         clearListeningWindow();
+        if (recognition && recognitionActive) recognition.stop();
         fieldVoiceRetries = 0;
         fieldVoiceTarget = null;
         fieldVoiceWaitingForStop = false;
         setVoiceStatus(message);
-        if (fieldVoiceButton) {
-            const field = form.querySelector(`[data-field-voice-status="${fieldVoiceButton.dataset.fieldId}"]`);
-            field?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        }
         fieldVoiceButton = null;
+        setExpanded(false);
+
+        if (completedElement) {
+            const fields = Array.from(form.querySelectorAll(
+                'input[id^="Input_"], textarea[id^="Input_"], select[id^="Input_"]'));
+            const currentIndex = fields.indexOf(completedElement);
+            const nextField = fields.slice(currentIndex + 1).find((field) =>
+                !field.disabled &&
+                !field.readOnly &&
+                !["hidden", "checkbox", "file", "radio", "submit", "button"].includes(field.type) &&
+                field.getClientRects().length > 0);
+
+            if (nextField) {
+                nextField.focus({ preventScroll: true });
+                nextField.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else {
+                completedElement.focus({ preventScroll: true });
+            }
+        }
     }
 
     function parseDate(value) {
@@ -1440,9 +1487,13 @@
             recognitionActive = true;
             recognitionFinalResults = new Set();
             assistant.dataset.listening = "true";
-            setVoiceStatus(fieldVoiceTarget
-                ? copy[language].fieldListening
-                : copy[language].listening);
+            if (listeningDeadline) {
+                updateVoiceCountdown();
+            } else {
+                setVoiceStatus(fieldVoiceTarget
+                    ? copy[language].fieldListening
+                    : copy[language].listening);
+            }
         };
         recognition.onresult = (event) => {
             if (!listeningDeadline) return;
@@ -1466,8 +1517,8 @@
             }
             if (heardSpeech) {
                 answerInput.value = getPendingTranscript();
+                voiceDetected = true;
                 resetSilenceTimer();
-                setVoiceStatus(copy[language].dictationWaiting);
             }
         };
         recognition.onerror = (event) => {

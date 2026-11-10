@@ -334,6 +334,7 @@ public class DraftsController : ControllerBase
         [FromForm] List<string> documentCodes,
         [FromForm] Guid? caseId,
         [FromForm] string? caseTitle,
+        [FromForm] string? caseCategory,
         [FromForm] string? plaintNature,
         [FromForm] string? jurisdiction,
         [FromForm] string? courtName,
@@ -347,6 +348,13 @@ public class DraftsController : ControllerBase
     {
         if (files.Count == 0 || files.Count != documentCodes.Count)
             return BadRequest(new { error = "Select at least one file and map every file to a checklist document." });
+
+        if (!string.IsNullOrWhiteSpace(caseCategory) &&
+            !caseCategory.Equals("Civil", StringComparison.OrdinalIgnoreCase) &&
+            !caseCategory.Equals("Criminal", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "caseCategory must be Civil or Criminal." });
+        }
 
         if (files.Any(file => file.Length == 0) ||
             files.Sum(file => file.Length) > 50L * 1024 * 1024)
@@ -368,7 +376,9 @@ public class DraftsController : ControllerBase
                 var createdCase = await _cases.CreateAsync(new CreateCaseRequest
                 {
                     Title = caseTitleValue,
-                    CaseCategory = "Civil",
+                    CaseCategory = string.Equals(caseCategory, "Criminal", StringComparison.OrdinalIgnoreCase)
+                        ? "Criminal"
+                        : "Civil",
                     PlaintNature = plaintNature,
                     Jurisdiction = string.IsNullOrWhiteSpace(jurisdiction) ? "India" : jurisdiction,
                     CourtName = courtName,

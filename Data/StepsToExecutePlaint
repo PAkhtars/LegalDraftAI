@@ -1,0 +1,16 @@
+1. Go to https://legaldraftai.technowizpvtltd.in/ and sign In - Using Demo credentials [UserId: Guest, Password: Welcome_102]
+2. Using Menu Search Out you appropriate Plaint Nature. Below are the Root Categories of Civil Plaints.
+	a.) Civil / Commercial Suits (Property & Contractual Matters)
+	b.) Matrimonial & Family Suits (Family Court / Civil Jurisdiction)
+	c.) Torts & Civil Wrongs (Compensation & Damages)
+	d.) Testamentary & Probate Suits
+	e.) Miscellaneous & Constitutional Civil Suits
+	
+3. Please fill the related fact of suit.
+4. Click On Research documents. This process will list down required documents to proceed the suit. Need to upload all those documents.
+5. Fill Court and suit, Suit property, Facts and relief,  Filing details [ To keep your Details saved for further processing best practice save each section details once finised using respective save button .] And for demo purpose please Check all files whose extracted text 		 should be excluded from the generation request. Files remain attached to the case. because it may violate the load limit to generate the plaint.
+6. Click to generate plaint 
+
+Note: 1. User may fill the form details by using keyborad input or can use speak to add/edit AI voice assistance as well.
+      2. You may select your choice of language to fill the details of suit and generate plaint accordingly.
+      3. You may download the plaint in docx and pdf format both.

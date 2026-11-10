@@ -15,6 +15,11 @@ public interface ICaseService
         Guid caseId,
         CivilPlaintDetailsDto details,
         CancellationToken ct = default);
+    Task<CaseDetailDto?> SaveCivilPlaintSectionAsync(
+        Guid caseId,
+        string section,
+        CivilPlaintDetailsDto details,
+        CancellationToken ct = default);
     Task<CaseDocumentDto> AddDocumentAsync(
         Guid caseId,
         string documentCode,

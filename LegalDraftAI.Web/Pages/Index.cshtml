@@ -1,9 +1,13 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Generate a draft";
+    ViewData["Title"] = Model.IsAuthenticated ? "Generate a draft" : "Sign in";
+    ViewData["IsAuthLanding"] = !Model.IsAuthenticated;
+    ViewData["AccountDisplayName"] = Model.AccountDisplayName;
 }
 
+@if (Model.IsAuthenticated)
+{
 <section class="hero">
     <p class="eyebrow">LEGAL DRAFT AI</p>
     <h1>Build a first draft from your case facts.</h1>
@@ -16,7 +20,7 @@
 }
 
 <div class="workspace">
-    <form method="post" class="draft-form">
+    <form method="post" class="draft-form" enctype="multipart/form-data">
         <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
 
         <section class="form-section">
@@ -68,6 +72,278 @@
                 <div class="field-hint default-facts-hint">Required. Do not include confidential information unless you are authorized to share it with the configured drafting service.</div>
                 <div class="field-hint absence-facts-hint" hidden>All fields above are included with your case details. Add any relevant context here if needed.</div>
                 <span asp-validation-for="Input.ExtractedClientFacts" class="field-error"></span>
+            </div>
+        </section>
+
+        <section class="form-section conditional-section" data-document-type="BailApplication" hidden>
+            <div class="section-heading">
+                <span class="section-number">03</span>
+                <div>
+                    <h2>Research bail supporting documents</h2>
+                    <p>Use the case facts to prepare a bail-document checklist, then upload and map the supporting records you have.</p>
+                </div>
+            </div>
+            <p class="field-hint" data-bail-facts-prompt>Enter the client facts above to enable document research.</p>
+            <div class="form-actions" data-bail-research-action hidden>
+                <p>Step 1 · Research documents for this bail application</p>
+                <button type="submit" class="secondary-button" formaction="?handler=ResearchBail" formnovalidate>
+                    Research documents <span aria-hidden="true">→</span>
+                </button>
+            </div>
+
+            @if (Model.BailResearchResult is not null)
+            {
+                <div class="subsection-heading">
+                    <h3>@Model.BailResearchResult.PlaintNatureLabel</h3>
+                    <p>@Model.BailResearchResult.Summary</p>
+                </div>
+                @if (Model.BailResearchResult.RequiredDocuments.Count > 0)
+                {
+                    @if (!string.IsNullOrWhiteSpace(Model.BailUploadStatusMessage))
+                    {
+                        <div class="upload-success" role="status">@Model.BailUploadStatusMessage</div>
+                    }
+                    <p class="checklist-instructions">Tick any supporting records already available. Checklist results are informational; confirm case-specific requirements with counsel.</p>
+                    <div class="document-checklist">
+                        @foreach (var document in Model.BailResearchResult.RequiredDocuments)
+                        {
+                            var alreadyHave = Model.BailResearchResult.AlreadyHave.Contains(document.Code, StringComparer.OrdinalIgnoreCase);
+                            <label class="document-row">
+                                <input type="checkbox"
+                                       name="Input.AlreadyHaveDocumentCodes"
+                                       value="@document.Code"
+                                       checked="@alreadyHave" />
+                                <span class="document-label">
+                                    <strong>@document.Label</strong>
+                                    <small>@document.Purpose · @document.Code</small>
+                                </span>
+                                <span class="priority-badge priority-@document.Priority.ToLowerInvariant()">@document.Priority</span>
+                                <span class="document-status @(alreadyHave ? "document-status-have" : "document-status-missing")">
+                                    @(alreadyHave ? "Already have" : "Missing")
+                                </span>
+                            </label>
+                        }
+                    </div>
+                    <div class="checklist-summary @(Model.BailResearchResult.CanFileWithMinimumSet ? "checklist-complete" : "checklist-incomplete")">
+                        <strong>@(Model.BailResearchResult.MissingMandatory.Count == 0 ? "Critical checklist items marked available." : $"{Model.BailResearchResult.MissingMandatory.Count} critical checklist item(s) not yet marked available.")</strong>
+                        <span>Upload related documents below or update the checklist if the client already has them.</span>
+                    </div>
+
+                    <div class="subsection-heading">
+                        <h3>Upload related documents</h3>
+                        <p>Map each file to the matching checklist item. Supported formats: PDF, DOCX, TXT, PNG, JPG, TIFF, BMP, GIF, and WebP.</p>
+                    </div>
+                    <div id="bail-upload-rows">
+                        <div class="upload-row">
+                            <div class="field">
+                                <label>Document file</label>
+                                <input class="form-control" type="file" name="files" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                            </div>
+                            <div class="field">
+                                <label>Checklist document</label>
+                                <select class="form-select" name="documentCodes">
+                                    <option value="">Map this file to a document</option>
+                                    @foreach (var document in Model.BailResearchResult.RequiredDocuments)
+                                    {
+                                        <option value="@document.Code">@document.Label (@document.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <template id="bail-upload-row-template">
+                        <div class="upload-row">
+                            <div class="field">
+                                <label>Document file</label>
+                                <input class="form-control" type="file" name="files" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.gif,.webp" />
+                            </div>
+                            <div class="field">
+                                <label>Checklist document</label>
+                                <select class="form-select" name="documentCodes">
+                                    <option value="">Map this file to a document</option>
+                                    @foreach (var document in Model.BailResearchResult.RequiredDocuments)
+                                    {
+                                        <option value="@document.Code">@document.Label (@document.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                            <button type="button" class="remove-upload-button" aria-label="Remove this upload">Remove</button>
+                        </div>
+                    </template>
+                    <div class="upload-actions">
+                        <button type="button" class="text-button" id="add-bail-upload">+ Add another document</button>
+                        <button type="submit" class="secondary-button" formaction="?handler=UploadBail" formnovalidate>
+                            Upload and extract <span aria-hidden="true">↑</span>
+                        </button>
+                    </div>
+                    @if (Model.BailUploadedDocuments.Count > 0)
+                    {
+                        <details class="civil-plaint-collapsible-list" open>
+                            <summary class="uploaded-heading">Uploaded documents (@Model.BailUploadedDocuments.Count)</summary>
+                            <ul class="uploaded-list">
+                                @foreach (var upload in Model.BailUploadedDocuments)
+                                {
+                                    var label = Model.BailResearchResult.RequiredDocuments
+                                        .FirstOrDefault(document => document.Code.Equals(upload.DocumentCode, StringComparison.OrdinalIgnoreCase))?.Label ?? upload.DocumentCode;
+                                    <li>
+                                        <strong>@label</strong>
+                                        <span>@upload.FileName</span>
+                                        <details>
+                                            <summary>Review extracted text</summary>
+                                            @if (string.IsNullOrWhiteSpace(upload.Text))
+                                            {
+                                                <p class="field-hint">No readable text was extracted. Check the original file and upload a clearer copy if needed.</p>
+                                            }
+                                            else
+                                            {
+                                                <pre class="result-json">@upload.Text</pre>
+                                                <p class="field-hint">Verify extracted text against the original. OCR can contain errors.</p>
+                                            }
+                                        </details>
+                                    </li>
+                                }
+                            </ul>
+                        </details>
+                    }
+
+                    <details class="form-section civil-plaint-collapsible-section" open>
+                        <summary class="section-heading">
+                            <span class="section-number">04</span>
+                            <div>
+                                <h2>Court and suit</h2>
+                                <p>Enter the court, case particulars, and parties for this new client.</p>
+                            </div>
+                        </summary>
+                        <div class="field-grid">
+                            <div class="field">
+                                <label asp-for="Input.CourtName">Court name <span class="required-mark">*</span></label>
+                                <input asp-for="Input.CourtName" class="form-control bail-required" placeholder="e.g. Court of the Sessions Judge, Jaipur" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.CaseTitle">Case title <span class="required-mark">*</span></label>
+                                <input asp-for="Input.CaseTitle" class="form-control bail-required" placeholder="Applicant v. State" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.CaseNumber">Case / application number <span class="optional-tag">Optional if not assigned</span></label>
+                                <input asp-for="Input.CaseNumber" class="form-control" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.ApplicantName">Applicant / accused name <span class="required-mark">*</span></label>
+                                <input asp-for="Input.ApplicantName" class="form-control bail-required" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.BailApplicantAddress">Applicant address</label>
+                                <textarea asp-for="Input.BailApplicantAddress" class="form-control" rows="2" placeholder="Current address, if relevant to the application"></textarea>
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.OppositePartyName">Respondent / State <span class="required-mark">*</span></label>
+                                <input asp-for="Input.OppositePartyName" class="form-control bail-required" placeholder="e.g. State of Rajasthan" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.FirNumber">FIR / complaint number</label>
+                                <input asp-for="Input.FirNumber" class="form-control" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.PoliceStation">Police station</label>
+                                <input asp-for="Input.PoliceStation" class="form-control" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.District">District</label>
+                                <input asp-for="Input.District" class="form-control" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.Sections">Applicable sections</label>
+                                <input asp-for="Input.Sections" class="form-control" placeholder="BNS / BNSS sections, if known" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.BailType">Bail application type <span class="required-mark">*</span></label>
+                                <select asp-for="Input.BailType" class="form-select bail-required">
+                                    <option value="">Select application type</option>
+                                    <option value="Regular bail">Regular bail</option>
+                                    <option value="Anticipatory bail">Anticipatory bail</option>
+                                    <option value="Interim bail">Interim bail</option>
+                                    <option value="Other bail application">Other bail application</option>
+                                </select>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="form-section civil-plaint-collapsible-section" open>
+                        <summary class="section-heading">
+                            <span class="section-number">05</span>
+                            <div>
+                                <h2>Facts and relief</h2>
+                                <p>Provide the factual background and grounds for the requested bail relief.</p>
+                            </div>
+                        </summary>
+                        <div class="field-grid field-grid-spaced">
+                            <div class="field">
+                                <label asp-for="Input.BailAllegations">Allegations and factual chronology <span class="required-mark">*</span></label>
+                                <textarea asp-for="Input.BailAllegations" class="form-control bail-required" rows="5" placeholder="State the events, dates, allegations, and procedural history as accurately as known."></textarea>
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.BailCustodyStatus">Arrest / custody status <span class="required-mark">*</span></label>
+                                <textarea asp-for="Input.BailCustodyStatus" class="form-control bail-required" rows="3" placeholder="Whether arrested, in custody, surrendered, or apprehending arrest; include dates if known."></textarea>
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.BailGrounds">Grounds for bail <span class="required-mark">*</span></label>
+                                <textarea asp-for="Input.BailGrounds" class="form-control bail-required" rows="4" placeholder="Enter case-specific grounds supported by the known facts."></textarea>
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.BailPrayer">Prayer / relief sought <span class="required-mark">*</span></label>
+                                <textarea asp-for="Input.BailPrayer" class="form-control bail-required" rows="3" placeholder="Describe the bail relief requested; counsel should confirm the applicable wording."></textarea>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="form-section civil-plaint-collapsible-section" open>
+                        <summary class="section-heading">
+                            <span class="section-number">06</span>
+                            <div>
+                                <h2>Filing details</h2>
+                                <p>Details used for the place, date, and advocate signature portion.</p>
+                            </div>
+                        </summary>
+                        <div class="field-grid">
+                            <div class="field">
+                                <label asp-for="Input.Place">Place <span class="required-mark">*</span></label>
+                                <input asp-for="Input.Place" class="form-control bail-required" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.ApplicationDate">Date <span class="required-mark">*</span></label>
+                                <input asp-for="Input.ApplicationDate" type="date" class="form-control bail-required" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.AdvocateName">Advocate name <span class="required-mark">*</span></label>
+                                <input asp-for="Input.AdvocateName" class="form-control bail-required" />
+                            </div>
+                            <div class="field">
+                                <label asp-for="Input.AdvocateEnrollmentNo">Advocate enrollment number</label>
+                                <input asp-for="Input.AdvocateEnrollmentNo" class="form-control" />
+                            </div>
+                        </div>
+                    </details>
+                }
+                else
+                {
+                    <p class="result-error">@Model.BailResearchResult.Summary</p>
+                }
+            }
+        </section>
+
+        <section class="form-section conditional-section" data-document-type="CivilPlaint" hidden>
+            <div class="section-heading">
+                <span class="section-number">03</span>
+                <div>
+                    <h2>Guided Civil Plaint workflow</h2>
+                    <p>Research supporting documents from your case facts, upload and map related files, then complete the court, party, property, relief, and filing sections.</p>
+                </div>
+            </div>
+            <p class="field-hint">Your facts and jurisdiction will be carried into the Civil Plaint page. You can review or edit them before running research.</p>
+            <div class="form-actions">
+                <button type="submit" class="generate-button" formaction="?handler=ContinueCivilPlaint" formnovalidate>
+                    Continue to research and complete plaint <span aria-hidden="true">→</span>
+                </button>
             </div>
         </section>
 
@@ -242,7 +518,7 @@
 
         <div class="form-actions">
             <p><span class="required-mark">*</span> Required fields</p>
-            <button type="submit" class="generate-button">
+            <button type="submit" class="generate-button" data-generic-generate data-bail-researched="@(Model.BailResearchResult is not null ? "true" : "false")">
                 Generate draft <span aria-hidden="true">→</span>
             </button>
         </div>
@@ -280,16 +556,167 @@
         </section>
     }
 </div>
+}
+else
+{
+    <section class="auth-landing" aria-labelledby="auth-title">
+        <div class="auth-story">
+            <div class="auth-kicker"><span class="auth-kicker-dot"></span> LEGAL WORK, MADE CLEARER</div>
+            <h1 id="auth-title">Your next case<br /><em>starts here.</em></h1>
+            <p class="auth-story-copy">A thoughtful workspace for building legal drafts from the facts that matter.</p>
+            <div class="auth-benefits">
+                <div class="auth-benefit"><span class="auth-benefit-icon" aria-hidden="true">01</span><span><strong>Start with your facts</strong><small>Organize the details that shape your matter.</small></span></div>
+                <div class="auth-benefit"><span class="auth-benefit-icon" aria-hidden="true">02</span><span><strong>Build with structure</strong><small>Move from intake to a clear first draft.</small></span></div>
+                <div class="auth-benefit"><span class="auth-benefit-icon" aria-hidden="true">03</span><span><strong>Review with care</strong><small>Keep professional review at the center.</small></span></div>
+            </div>
+            <div class="auth-quote"><span aria-hidden="true">“</span><p>Better beginnings for the work that matters.</p></div>
+        </div>
+
+        <div class="auth-card-wrap">
+            <div class="auth-card">
+                <div class="auth-card-heading">
+                    <span class="auth-card-mark" aria-hidden="true">L</span>
+                    <p class="eyebrow">LEGAL DRAFT AI</p>
+                    <h2>Welcome to your workspace</h2>
+                    <p>Sign in or create an account to continue.</p>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Model.AuthSuccessMessage))
+                {
+                    <div class="auth-alert auth-alert-success" role="status">@Model.AuthSuccessMessage</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.AuthErrorMessage))
+                {
+                    <div class="auth-alert auth-alert-error" role="alert">@Model.AuthErrorMessage</div>
+                }
+
+                <div class="auth-tabs" role="tablist" aria-label="Account options">
+                    <button type="button" class="auth-tab @(Model.AuthFormMode == "login" ? "is-active" : "")" role="tab" aria-selected="@(Model.AuthFormMode == "login")" aria-controls="login-panel" data-auth-tab="login">Sign in</button>
+                    <button type="button" class="auth-tab @(Model.AuthFormMode == "register" ? "is-active" : "")" role="tab" aria-selected="@(Model.AuthFormMode == "register")" aria-controls="register-panel" data-auth-tab="register">Create account</button>
+                </div>
+
+                <form method="post" asp-page-handler="Login" class="auth-form" id="login-panel" role="tabpanel" data-auth-panel="login" hidden="@(Model.AuthFormMode != "login")">
+                    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+                    <div class="field">
+                        <label asp-for="Login.EmailOrUsername">Email or username</label>
+                        <input asp-for="Login.EmailOrUsername" class="form-control" autocomplete="username" placeholder="you@example.com" autofocus="@(Model.AuthFormMode == "login")" />
+                        <span asp-validation-for="Login.EmailOrUsername" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <div class="auth-label-row"><label asp-for="Login.Password">Password</label></div>
+                        <input asp-for="Login.Password" type="password" class="form-control" autocomplete="current-password" placeholder="Enter your password" />
+                        <span asp-validation-for="Login.Password" class="field-error"></span>
+                    </div>
+                    <button type="submit" class="auth-submit">Sign in <span aria-hidden="true">→</span></button>
+                    <p class="auth-switch-copy">New to Legal Draft AI? <button type="button" data-auth-tab="register">Create an account</button></p>
+                </form>
+
+                <form method="post" asp-page-handler="Register" class="auth-form" id="register-panel" role="tabpanel" data-auth-panel="register" hidden="@(Model.AuthFormMode != "register")">
+                    <div asp-validation-summary="ModelOnly" class="validation-summary" role="alert"></div>
+                    <div class="field">
+                        <label asp-for="Registration.FullName">Full name</label>
+                        <input asp-for="Registration.FullName" class="form-control" autocomplete="name" placeholder="Your name" />
+                        <span asp-validation-for="Registration.FullName" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="Registration.Username">Username</label>
+                        <input asp-for="Registration.Username" class="form-control" autocomplete="username" placeholder="Choose a username" />
+                        <span asp-validation-for="Registration.Username" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="Registration.Email">Email address</label>
+                        <input asp-for="Registration.Email" type="email" class="form-control" autocomplete="email" placeholder="you@example.com" />
+                        <span asp-validation-for="Registration.Email" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label asp-for="Registration.Password">Password</label>
+                        <input asp-for="Registration.Password" type="password" class="form-control" autocomplete="new-password" placeholder="Create a password" />
+                        <span asp-validation-for="Registration.Password" class="field-error"></span>
+                    </div>
+                    <button type="submit" class="auth-submit">Create account <span aria-hidden="true">→</span></button>
+                    <p class="auth-switch-copy">Already have an account? <button type="button" data-auth-tab="login">Sign in</button></p>
+                </form>
+                <p class="auth-privacy"><span aria-hidden="true">▣</span> Your password is sent securely to the account service and is never stored by this site.</p>
+            </div>
+            <p class="auth-review-note">Legal drafts are starting points and should be reviewed by a qualified advocate.</p>
+        </div>
+        <section class="plaint-guide" aria-labelledby="plaint-guide-title">
+            <div class="plaint-guide-heading">
+                <p class="eyebrow">GETTING STARTED</p>
+                <h2 id="plaint-guide-title">📖 Step-by-Step Guide: Generating Civil Plaints on LegalAI Assistance</h2>
+                <p>Follow these steps to prepare a structured first draft using the LegalAI Assistance portal.</p>
+            </div>
+            <ol class="plaint-guide-steps">
+                <li>
+                    <strong>Sign in</strong>
+                    <p>Open <a href="https://legaldraftai.technowizpvtltd.in/">LegalAI Assistance</a> and sign in with the demo account: User ID <strong>Guest</strong>, password <strong>Welcome_102</strong>.</p>
+                </li>
+                <li>
+                    <strong>Choose a plaint nature from the menu</strong>
+                    <p>Use the Civil Plaint menu to select the closest match from these root categories:</p>
+                    <ul class="plaint-guide-categories">
+                        <li>Civil / Commercial Suits (Property &amp; Contractual Matters)</li>
+                        <li>Matrimonial &amp; Family Suits (Family Court / Civil Jurisdiction)</li>
+                        <li>Torts &amp; Civil Wrongs (Compensation &amp; Damages)</li>
+                        <li>Testamentary &amp; Probate Suits</li>
+                        <li>Miscellaneous &amp; Constitutional Civil Suits</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Enter the related suit facts</strong>
+                    <p>Provide a clear, factual account of the dispute. Include relevant parties, dates, events, and known details; avoid unverified claims.</p>
+                </li>
+                <li>
+                    <strong>Research and upload supporting documents</strong>
+                    <p>Select <em>Research documents</em> to view the checklist, then upload and map the documents relevant to the selected plaint nature.</p>
+                </li>
+                <li>
+                    <strong>Complete the plaint sections</strong>
+                    <p>Fill in Court and suit, Suit property, Facts and relief, and Filing details. Save section details when finished if the save option is available. For the demo, check files whose extracted text should be excluded from generation if needed; the files remain attached to the case.</p>
+                </li>
+                <li>
+                    <strong>Generate and review the plaint</strong>
+                    <p>Select <em>Generate plaint</em>. Review all facts, legal grounds, citations, and requested relief with a qualified advocate before filing.</p>
+                </li>
+            </ol>
+            <div class="plaint-guide-notes">
+                <h3>Helpful notes</h3>
+                <ul>
+                    <li>Complete the form using keyboard input or the AI voice assistant to add or edit details.</li>
+                    <li>Select your preferred language for entering details and generating the plaint.</li>
+                    <li>Download the generated plaint in DOCX or PDF format when those options are available.</li>
+                    <li>Do not share confidential information with configured AI services unless authorized.</li>
+                </ul>
+            </div>
+        </section>
+    </section>
+}
 
 @section Scripts {
+    @if (Model.IsAuthenticated)
+    {
     <partial name="_ValidationScriptsPartial" />
     <script>
         (() => {
             const documentType = document.getElementById("Input_DocumentType");
+            const factsInput = document.querySelector(".facts-input");
             const sections = document.querySelectorAll(".conditional-section");
+            const bailResearchAction = document.querySelector("[data-bail-research-action]");
+            const bailFactsPrompt = document.querySelector("[data-bail-facts-prompt]");
+            const genericGenerateButton = document.querySelector("[data-generic-generate]");
+            const bailUploadRows = document.getElementById("bail-upload-rows");
+            const bailUploadTemplate = document.getElementById("bail-upload-row-template");
+
+            function updateBailResearchOption() {
+                const hasFacts = factsInput.value.trim().length > 0;
+                bailResearchAction.hidden = !hasFacts;
+                bailFactsPrompt.hidden = hasFacts;
+            }
 
             function updateConditionalFields() {
                 const absenceApplicationSelected = documentType.value === "AbsenceApplication";
+                const civilPlaintSelected = documentType.value === "CivilPlaint";
+                const bailApplicationSelected = documentType.value === "BailApplication";
                 sections.forEach((section) => {
                     section.hidden = section.dataset.documentType !== documentType.value;
                 });
@@ -297,15 +724,56 @@
                 document.querySelectorAll(".absence-required").forEach((input) => {
                     input.required = absenceApplicationSelected;
                 });
+                document.querySelectorAll(".bail-required").forEach((input) => {
+                    input.required = bailApplicationSelected;
+                });
                 document.querySelector(".facts-input").required = !absenceApplicationSelected;
                 document.querySelector(".default-facts-label").hidden = absenceApplicationSelected;
                 document.querySelector(".absence-facts-label").hidden = !absenceApplicationSelected;
                 document.querySelector(".default-facts-hint").hidden = absenceApplicationSelected;
                 document.querySelector(".absence-facts-hint").hidden = !absenceApplicationSelected;
+                genericGenerateButton.hidden = civilPlaintSelected ||
+                    bailApplicationSelected && genericGenerateButton.dataset.bailResearched !== "true";
+                updateBailResearchOption();
             }
 
             documentType.addEventListener("change", updateConditionalFields);
+            factsInput.addEventListener("input", () => {
+                genericGenerateButton.dataset.bailResearched = "false";
+                updateConditionalFields();
+            });
+            document.getElementById("add-bail-upload")?.addEventListener("click", () => {
+                bailUploadRows.append(bailUploadTemplate.content.cloneNode(true));
+            });
+            bailUploadRows?.addEventListener("click", (event) => {
+                if (event.target.closest(".remove-upload-button"))
+                    event.target.closest(".upload-row").remove();
+            });
             updateConditionalFields();
         })();
     </script>
+    }
+    else
+    {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const tabs = document.querySelectorAll("[data-auth-tab]");
+            const panels = document.querySelectorAll("[data-auth-panel]");
+
+            function selectMode(mode) {
+                panels.forEach((panel) => { panel.hidden = panel.dataset.authPanel !== mode; });
+                tabs.forEach((tab) => {
+                    const active = tab.dataset.authTab === mode;
+                    tab.classList.toggle("is-active", active);
+                    if (tab.hasAttribute("aria-selected")) tab.setAttribute("aria-selected", String(active));
+                });
+                const firstInput = document.querySelector(`[data-auth-panel="${mode}"] input:not([type="hidden"])`);
+                if (firstInput) firstInput.focus();
+            }
+
+            tabs.forEach((tab) => tab.addEventListener("click", () => selectMode(tab.dataset.authTab)));
+        })();
+    </script>
+    }
 }

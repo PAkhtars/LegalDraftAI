@@ -301,12 +301,16 @@ public class GroqDraftService : IGroqDraftService
                   "courtName": "string",
                   "caseTitle": "string",
                   "caseNumber": "string",
+                  "bailType": "string",
                   "applicantName": "string",
+                  "applicantAddress": "string|null",
                   "respondentName": "string",
                   "firNumber": "string|null",
                   "policeStation": "string|null",
                   "district": "string|null",
                   "sections": ["string"],
+                  "factualBackground": ["string"],
+                  "custodyStatus": "string|null",
                   "grounds": ["string"],
                   "prayer": "string",
                   "place": "string",
@@ -618,6 +622,11 @@ public class GroqDraftService : IGroqDraftService
 
         var documentGuidance = request.DocumentType switch
         {
+                        "BailApplication" => """
+                            Draft the selected bail application type using the supplied case particulars, allegations, custody status, grounds, prayer, and supporting-document text.
+                            Preserve names, court, case/FIR numbers, police station, district, dates, and statutory sections exactly as supplied. Do not invent arrest/custody events, criminal antecedents, procedural history, legal provisions, or facts from an uploaded record that are not present in the supplied text.
+                            Organize the supplied bail grounds into clear, case-specific paragraphs. If a necessary fact is absent or uncertain, leave it blank or use a clear placeholder for advocate review rather than assuming it.
+                            """,
             "CivilPlaint" => """
               For a CivilPlaint, format the content as an Indian civil suit plaint with:
               - suitTitle as a concise heading such as "SUIT FOR RECOVERY OF MONEY"; do not invent an amount.

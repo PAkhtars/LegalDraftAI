@@ -292,6 +292,79 @@ public class CaseService : ICaseService
         return await GetAsync(caseId, ct);
     }
 
+    public async Task<CaseDetailDto?> SaveCivilPlaintSectionAsync(
+        Guid caseId,
+        string section,
+        CivilPlaintDetailsDto details,
+        CancellationToken ct = default)
+    {
+        var caseRecord = await _db.Cases
+            .Include(item => item.CivilPlaintCourtAndSuit)
+            .Include(item => item.CivilPlaintSuitProperty)
+            .Include(item => item.CivilPlaintFactsAndRelief)
+            .Include(item => item.CivilPlaintFilingDetails)
+            .FirstOrDefaultAsync(item => item.Id == caseId, ct);
+        if (caseRecord is null)
+            return null;
+
+        switch (section.ToLowerInvariant())
+        {
+            case "court-and-suit":
+                var courtAndSuit = caseRecord.CivilPlaintCourtAndSuit ??= new();
+                courtAndSuit.CourtName = details.CourtAndSuit.CourtName;
+                courtAndSuit.CaseTitle = details.CourtAndSuit.CaseTitle;
+                courtAndSuit.CaseNumber = details.CourtAndSuit.CaseNumber;
+                courtAndSuit.CauseOfActionDate = details.CourtAndSuit.CauseOfActionDate;
+                courtAndSuit.PlaintiffName = details.CourtAndSuit.PlaintiffName;
+                courtAndSuit.DefendantName = details.CourtAndSuit.DefendantName;
+                courtAndSuit.PlaintiffAddress = details.CourtAndSuit.PlaintiffAddress;
+                courtAndSuit.DefendantAddress = details.CourtAndSuit.DefendantAddress;
+                caseRecord.Title = details.CourtAndSuit.CaseTitle ?? caseRecord.Title;
+                caseRecord.CourtName = details.CourtAndSuit.CourtName ?? caseRecord.CourtName;
+                caseRecord.CaseNumber = details.CourtAndSuit.CaseNumber ?? caseRecord.CaseNumber;
+                caseRecord.PlaintiffName = details.CourtAndSuit.PlaintiffName ?? caseRecord.PlaintiffName;
+                caseRecord.PlaintiffAddress = details.CourtAndSuit.PlaintiffAddress ?? caseRecord.PlaintiffAddress;
+                caseRecord.DefendantName = details.CourtAndSuit.DefendantName ?? caseRecord.DefendantName;
+                caseRecord.DefendantAddress = details.CourtAndSuit.DefendantAddress ?? caseRecord.DefendantAddress;
+                break;
+            case "suit-property":
+                var suitProperty = caseRecord.CivilPlaintSuitProperty ??= new();
+                suitProperty.PropertyDescription = details.SuitProperty.PropertyDescription;
+                suitProperty.SurveyPlotNumber = details.SuitProperty.SurveyPlotNumber;
+                suitProperty.Area = details.SuitProperty.Area;
+                suitProperty.Village = details.SuitProperty.Village;
+                suitProperty.Tehsil = details.SuitProperty.Tehsil;
+                suitProperty.District = details.SuitProperty.District;
+                suitProperty.SuitValuationCourtFee = details.SuitProperty.SuitValuationCourtFee;
+                break;
+            case "facts-and-relief":
+                var factsAndRelief = caseRecord.CivilPlaintFactsAndRelief ??= new();
+                factsAndRelief.Facts = details.FactsAndRelief.Facts;
+                factsAndRelief.LegalGrounds = details.FactsAndRelief.LegalGrounds;
+                factsAndRelief.ReliefsSought = details.FactsAndRelief.ReliefsSought;
+                factsAndRelief.Prayer = details.FactsAndRelief.Prayer;
+                caseRecord.ClientFacts = details.FactsAndRelief.Facts ?? caseRecord.ClientFacts;
+                break;
+            case "filing-details":
+                var filingDetails = caseRecord.CivilPlaintFilingDetails ??= new();
+                filingDetails.Place = details.FilingDetails.Place;
+                filingDetails.Date = details.FilingDetails.Date;
+                filingDetails.AdvocateName = details.FilingDetails.AdvocateName;
+                filingDetails.EnrollmentNumber = details.FilingDetails.EnrollmentNumber;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(section), section, "Unsupported Civil Plaint section.");
+        }
+
+        if (details.PlaintNature is not null)
+            caseRecord.PlaintNature = details.PlaintNature;
+        if (details.Jurisdiction is not null)
+            caseRecord.Jurisdiction = details.Jurisdiction;
+        caseRecord.UpdatedAtUtc = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+        return await GetAsync(caseId, ct);
+    }
+
     public async Task<CaseDocumentDto> AddDocumentAsync(
         Guid caseId,
         string documentCode,

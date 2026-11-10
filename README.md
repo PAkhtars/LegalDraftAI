@@ -24,33 +24,17 @@ ASP.NET Core 8 Web API that helps advocates generate court-ready legal documents
 The API project includes English and Hindi Tesseract OCR data files in `tessdata/`; keep these files alongside the project when publishing. OCR runs locally and does not send images to the drafting provider.
 The trained data files are from the official [tessdata_fast repository](https://github.com/tesseract-ocr/tessdata_fast) and are distributed under Apache 2.0.
 
-### 2. Configure the API key
+### 2. Configure credentials
 
-Edit `appsettings.json` (or better, use User Secrets / environment variables):
-
-```json
-"Groq": {
-  "ApiKey": "your-groq-api-key",
-  "Model": "openai/gpt-oss-120b"
-}
-```
-
-Or set the environment variable:
+Keep API keys and database credentials out of tracked `appsettings*.json` files. For local development, use .NET User Secrets or environment variables. The configuration keys are:
 
 ```bash
 export Groq__ApiKey=your-groq-api-key
+export Gemini__ApiKey=your-gemini-api-key
+export ConnectionStrings__DefaultConnection='your-sql-server-connection-string'
 ```
 
-For Civil Plaint generation with Gemini, configure the optional provider similarly:
-
-```json
-"Gemini": {
-  "ApiKey": "your-gemini-api-key",
-  "Model": "gemini-3.8-flash"
-}
-```
-
-Or set `Gemini__ApiKey` as an environment variable. The Civil Plaint page defaults to Groq and includes a provider selector for Groq or Google Gemini. Other document-generation workflows continue to use Groq.
+Gemini is optional and is only needed when selected for Civil Plaint generation. The Civil Plaint page defaults to Groq; other document-generation workflows use Groq.
 
 ### 3. Run
 
@@ -154,13 +138,7 @@ Cases, uploaded documents, and generated drafts are persisted.
 | GET | `/api/cases/{id}/drafts/{draftId}` | Saved JSON |
 | GET | `/api/cases/{id}/drafts/{draftId}/pdf` | Download PDF |
 
-**Connection string** in `appsettings.json`:
-
-```json
-"ConnectionStrings": {
-  "DefaultConnection": "Server=localhost,1433;Database=LegalDraftAI;User Id=sa;Password=...;TrustServerCertificate=True;Encrypt=False"
-}
-```
+**Connection string:** provide `ConnectionStrings__DefaultConnection` through User Secrets or the environment. Do not commit credentials in `appsettings.json`.
 
 Schema is created on startup via EF `EnsureCreated()`. Startup also adds the SQL Server columns for document bytes, generated PDF bytes, application codes, and stage-application relationships to an existing database. Alternatively, run `Data/SqlServer_Schema.sql` manually.
 
@@ -196,5 +174,3 @@ LegalDraftAI/
 ## License
 
 This sample is provided as-is for educational and internal use.
-#   L e g a l D r a f t A I  
- 

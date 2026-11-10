@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/LegalDraftAI.Web.styles.css" asp-append-version="true" />
 </head>
-<body>
+<body class="@(ViewData["IsAuthLanding"] is true ? "auth-layout" : null)">
     <header class="site-header">
         <div class="container site-nav">
             <a class="brand" asp-area="" asp-page="/Index">
@@ -19,6 +19,8 @@
                     <span class="brand-caption">A first draft, grounded in your facts</span>
                 </span>
             </a>
+            @if (ViewData["IsAuthLanding"] is not true)
+            {
             <nav class="site-links" aria-label="Main navigation">
                 <details class="nav-dropdown">
                     <summary>Civil Cases</summary>
@@ -163,7 +165,15 @@
                         <a asp-page="/CreatePdfFromImages">Create PDF From Images</a>
                     </div>
                 </details>
+                @if (ViewData["AccountDisplayName"] is string accountDisplayName)
+                {
+                    <span class="account-greeting">@accountDisplayName</span>
+                    <form method="post" asp-page="/Index" asp-page-handler="Logout" class="account-logout-form">
+                        <button type="submit" class="account-logout">Sign out</button>
+                    </form>
+                }
             </nav>
+            }
         </div>
     </header>
     <div class="container main-container">
@@ -172,9 +182,12 @@
         </main>
     </div>
 
+    @if (ViewData["IsAuthLanding"] is not true)
+    {
     <footer class="site-footer">
         Generated drafts must be reviewed by a qualified advocate before filing.
     </footer>
+    }
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
